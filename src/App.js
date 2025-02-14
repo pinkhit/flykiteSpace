@@ -1,17 +1,36 @@
-import React from 'react';
+import React, { Suspense } from "react"
+import { Canvas } from "@react-three/fiber";
+import "./style.css"
+import { OrbitControls, PerspectiveCamera } from "@react-three/drei";
+import { BoxGeometry, MeshBasicMaterial } from "three";
 
-function App() {
+import { Water } from "./water";
+
+
+function Lake()
+{
   return (
-    <div style={{ textAlign: 'center' }}>
-      <header>
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a href="https://reactjs.org" target="_blank" rel="noopener noreferrer">
-          Learn React
-        </a>
-      </header>
-    </div>
+    <>
+      <OrbitControls target={[0, 0, 0]} maxPolarAngle={1.45} />
+      <PerspectiveCamera makeDefault fov={95} position={[3, 3, 3]} />
+      <Water />
+      <mesh>
+       <boxGeometry args={[1,1,1]} />
+       <meshBasicMaterial color={"red"} />
+      </mesh>
+    </>
+  );
+}
+
+
+function App()
+{
+  return (
+    <Suspense fallback={null}>
+      <Canvas>
+        <Lake></Lake>
+      </Canvas>
+    </Suspense>
   );
 }
 
