@@ -102,6 +102,53 @@ button {
   opacity: 0.85;
 }
 
+
+/* portrait friedndly HUD */
+@media (pointer: coarse) and (orientation: portrait) {
+  .title {
+    left: 16px;
+    top: 16px;
+  }
+
+  .title h1 {
+    font-size: 18px;
+  }
+
+  .title p {
+    font-size: 12px;
+  }
+
+  .instructions {
+    left: 50%;
+    bottom: 20px;
+    width: calc(100vw - 32px);
+    transform: translateX(-50%);
+    text-align: center;
+    font-size: 13px;
+  }
+
+  .crosshair {
+    width: 24px;
+    height: 24px;
+  }
+
+  .crosshair::before {
+    left: 11px;
+    top: 4px;
+    height: 16px;
+  }
+
+  .crosshair::after {
+    left: 4px;
+    top: 11px;
+    width: 16px;
+  }
+}
+
+
+
+/* for rotate device overlay, locking to landscape for mobile */
+/* 
 .rotate-overlay {
   display: none;
 }
@@ -131,4 +178,4 @@ button {
     margin: 0;
     opacity: 0.8;
   }
-}
+} */

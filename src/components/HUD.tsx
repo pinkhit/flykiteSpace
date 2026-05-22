@@ -11,7 +11,7 @@ export function Hud() {
       <Crosshair />
 
       <div className="instructions">
-        Desktop: drag to steer · Mobile: swipe in landscape
+        Desktop: click and drag · Mobile: swipe ya finga
       </div>
     </div>
   )
