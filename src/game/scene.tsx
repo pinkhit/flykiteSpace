@@ -1,0 +1,27 @@
+import { Canvas } from '@react-three/fiber'
+import { Environment } from './environment'
+import { CameraRig } from './camera'
+import { Kite } from './kite'
+import { KiteString } from './string'
+import { Hand } from './arm'
+
+export function GameCanvas() {
+  return (
+    <Canvas
+      className="canvas"
+      camera={{ position: [0, 1.6, 0], fov: 70 }}
+      gl={{ antialias: true }}
+    >
+      <color attach="background" args={['#8ec5ff']} />
+
+      <ambientLight intensity={1.2} />
+      <directionalLight position={[5, 8, 4]} intensity={1.5} />
+
+      <CameraRig />
+      <Environment />
+      <Kite />
+      <KiteString />
+      <Hand />
+    </Canvas>
+  )
+}
