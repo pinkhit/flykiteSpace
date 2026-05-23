@@ -267,3 +267,33 @@ button {
     font-size: 13px;
   }
 }
+
+
+
+/* for cameera motion controls */
+.motion-toggle {
+  pointer-events: auto;
+  position: absolute;
+  right: 24px;
+  top: 72px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 999px;
+  color: white;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.motion-toggle:active {
+  transform: scale(0.98);
+}
+
+@media (pointer: coarse) and (orientation: portrait) {
+  .motion-toggle {
+    right: 16px;
+    top: 64px;
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+}
