@@ -102,6 +102,21 @@ button {
   opacity: 0.85;
 }
 
+/* ensure links are clickable through threeJS canvas layer */
+.portfolio-link {
+  pointer-events: auto;
+  display: inline-block;
+  margin-top: 6px;
+  color: white;
+  text-decoration: underline;
+  text-underline-offset: 10px;
+  cursor: pointer;
+}
+
+.portfolio-link:hover {
+  opacity: 0.8;
+}
+
 
 /* portrait friedndly HUD */
 @media (pointer: coarse) and (orientation: portrait) {
@@ -179,3 +194,76 @@ button {
     opacity: 0.8;
   }
 } */
+
+
+/* camera pass through on mobile */
+.camera-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  opacity: 0;
+  background: #111827;
+  pointer-events: none;
+}
+
+.camera-background.is-active {
+  opacity: 1;
+}
+
+.canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+}
+
+.hud {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+
+.camera-error {
+  position: fixed;
+  left: 50%;
+  bottom: 80px;
+  z-index: 30;
+  transform: translateX(-50%);
+  width: min(360px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border-radius: 12px;
+  color: white;
+  background: rgba(180, 40, 40, 0.9);
+  text-align: center;
+  font-size: 14px;
+}
+
+.camera-toggle {
+  pointer-events: auto;
+  position: absolute;
+  right: 24px;
+  top: 24px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 999px;
+  color: white;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.camera-toggle:active {
+  transform: scale(0.98);
+}
+
+@media (pointer: coarse) and (orientation: portrait) {
+  .camera-toggle {
+    right: 16px;
+    top: 16px;
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+}
