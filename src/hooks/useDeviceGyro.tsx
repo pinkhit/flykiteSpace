@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 export type OrientationState = {
   supported: boolean
@@ -14,18 +14,31 @@ type DeviceOrientationEventWithPermission = typeof DeviceOrientationEvent & {
   requestPermission?: () => Promise<'granted' | 'denied'>
 }
 
-export function useDeviceOrientation(enabled: boolean): OrientationState {
-  const [supported, setSupported] = useState(false)
-  const [permission, setPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown')
-  const [active, setActive] = useState(false)
+function supportsDeviceOrientation() {
+  return typeof window !== 'undefined' && 'DeviceOrientationEvent' in window
+}
 
+function getInitialPermission(): OrientationState['permission'] {
+  if (!supportsDeviceOrientation()) return 'unknown'
+
+  const DeviceOrientation =
+    window.DeviceOrientationEvent as DeviceOrientationEventWithPermission
+
+  // iOS requires a user gesture. Other browsers can begin listening directly.
+  return typeof DeviceOrientation.requestPermission === 'function'
+    ? 'unknown'
+    : 'granted'
+}
+
+export function useDeviceOrientation(enabled: boolean): OrientationState {
+  const supported = supportsDeviceOrientation()
+  const [permission, setPermission] =
+    useState<OrientationState['permission']>(getInitialPermission)
+
+  const activeRef = useRef(false)
   const alphaRef = useRef(0)
   const betaRef = useRef(0)
   const gammaRef = useRef(0)
-
-  useEffect(() => {
-    setSupported(typeof window !== 'undefined' && 'DeviceOrientationEvent' in window)
-  }, [])
 
   const requestPermission = useCallback(async () => {
     if (!window.isSecureContext) {
@@ -35,7 +48,6 @@ export function useDeviceOrientation(enabled: boolean): OrientationState {
     }
 
     if (!('DeviceOrientationEvent' in window)) {
-      setSupported(false)
       setPermission('denied')
       return false
     }
@@ -45,9 +57,15 @@ export function useDeviceOrientation(enabled: boolean): OrientationState {
 
     // iOS Safari-style permission path.
     if (typeof DeviceOrientation.requestPermission === 'function') {
-      const result = await DeviceOrientation.requestPermission()
-      setPermission(result)
-      return result === 'granted'
+      try {
+        const result = await DeviceOrientation.requestPermission()
+        setPermission(result)
+        return result === 'granted'
+      } catch (error) {
+        console.warn('Unable to request device orientation permission.', error)
+        setPermission('denied')
+        return false
+      }
     }
 
     // Android Chrome-style path usually does not need explicit requestPermission.
@@ -56,39 +74,49 @@ export function useDeviceOrientation(enabled: boolean): OrientationState {
   }, [])
 
   useEffect(() => {
+    activeRef.current = false
+
     if (!enabled || permission !== 'granted') {
-      setActive(false)
       return
     }
 
     function handleOrientation(event: DeviceOrientationEvent) {
+      if (event.alpha === null && event.beta === null && event.gamma === null) {
+        return
+      }
+
       alphaRef.current = event.alpha ?? 0
       betaRef.current = event.beta ?? 0
       gammaRef.current = event.gamma ?? 0
-      setActive(true)
+      activeRef.current = true
     }
 
     window.addEventListener('deviceorientation', handleOrientation, true)
 
     return () => {
       window.removeEventListener('deviceorientation', handleOrientation, true)
-      setActive(false)
+      activeRef.current = false
     }
   }, [enabled, permission])
 
-  return {
-    supported,
-    permission,
-    active,
-    get alpha() {
-      return alphaRef.current
-    },
-    get beta() {
-      return betaRef.current
-    },
-    get gamma() {
-      return gammaRef.current
-    },
-    requestPermission,
-  }
+  return useMemo(
+    () => ({
+      supported,
+      permission,
+      get active() {
+        return activeRef.current
+      },
+      get alpha() {
+        return alphaRef.current
+      },
+      get beta() {
+        return betaRef.current
+      },
+      get gamma() {
+        return gammaRef.current
+      },
+      requestPermission,
+    }),
+    [permission, requestPermission, supported]
+  )
 }

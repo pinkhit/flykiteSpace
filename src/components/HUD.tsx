@@ -338,22 +338,6 @@ export function Hud({
 
             <label>
               <span>
-                Wind speed <output>{windSpeed.toFixed(1)}</output>
-              </span>
-              <input
-                type="range"
-                min="0"
-                max="10"
-                step="0.1"
-                value={windSpeed}
-                onChange={(event) =>
-                  onWindSpeedChange(Number(event.currentTarget.value))
-                }
-              />
-            </label>
-
-            <label>
-              <span>
                 Cloud seed
                 <output>{cloudSeed}</output>
               </span>
@@ -405,31 +389,50 @@ export function Hud({
         </details>}
       </div>
 
-      <details className="string-length-panel">
-        <summary>
-          <span className="string-length-title">String</span>
-          <output>{stringLength.toFixed(1)} m</output>
-        </summary>
+      <div className="lower-left-controls">
+        <label className="wind-speed-control">
+          <span>
+            Wind speed <output>{windSpeed.toFixed(1)}</output>
+          </span>
+          <input
+            type="range"
+            aria-label="Wind speed"
+            min="0"
+            max="10"
+            step="0.1"
+            value={windSpeed}
+            onChange={(event) =>
+              onWindSpeedChange(Number(event.currentTarget.value))
+            }
+          />
+        </label>
 
-        <div className="string-length-panel-content">
-          <label className="string-length-scale">
-            <span>50 m</span>
-            <input
-              className="string-length-slider"
-              type="range"
-              aria-label="String length"
-              min="3"
-              max="50"
-              step="0.5"
-              value={stringLength}
-              onChange={(event) =>
-                onStringLengthChange(Number(event.currentTarget.value))
-              }
-            />
-            <span>3 m</span>
-          </label>
-        </div>
-      </details>
+        <details className="string-length-panel">
+          <summary>
+            <span className="string-length-title">String</span>
+            <output>{stringLength.toFixed(1)} m</output>
+          </summary>
+
+          <div className="string-length-panel-content">
+            <label className="string-length-scale">
+              <span>50 m</span>
+              <input
+                className="string-length-slider"
+                type="range"
+                aria-label="String length"
+                min="3"
+                max="50"
+                step="0.5"
+                value={stringLength}
+                onChange={(event) =>
+                  onStringLengthChange(Number(event.currentTarget.value))
+                }
+              />
+              <span>3 m</span>
+            </label>
+          </div>
+        </details>
+      </div>
 
       {!collapsed && (
         <div className="instructions">

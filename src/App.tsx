@@ -16,7 +16,6 @@ import { GameCanvas } from './game/scene'
 import { Hud } from './components/HUD'
 import { CameraBackground } from './components/passThroughCam'
 import { useDeviceOrientation } from './hooks/useDeviceGyro'
-import { resetCameraOrientationCalibration } from './game/camera'
 import {
   DUSK_GLOW_LIGHTING,
   LIGHTING_PRESETS,
@@ -75,11 +74,9 @@ export default function App() {
 
   async function handleEnableMotion() {
     await orientation.requestPermission()
-    resetCameraOrientationCalibration()
   }
 
   function handleToggleCameraMode() {
-    resetCameraOrientationCalibration()
     setCameraMode((value) => !value)
   }
 

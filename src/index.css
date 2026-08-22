@@ -483,11 +483,19 @@ button {
   transform: scale(0.98);
 }
 
-.string-length-panel {
+.lower-left-controls {
   pointer-events: auto;
   position: absolute;
   left: 24px;
   bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.wind-speed-control,
+.string-length-panel {
   width: 160px;
   padding: 10px 14px;
   border: 2px solid white;
@@ -495,6 +503,28 @@ button {
   color: white;
   background: #0645ad;
   backdrop-filter: blur(8px);
+}
+
+.wind-speed-control > span {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.wind-speed-control output {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.82;
+}
+
+.wind-speed-control input {
+  display: block;
+  width: 100%;
+  margin: 0;
+  accent-color: #8ee8ff;
+  touch-action: pan-x;
+}
+
+.string-length-panel {
   transition:
     width 160ms ease,
     border-radius 160ms ease;
@@ -607,9 +637,13 @@ button {
     width: 190px;
   }
 
-  .string-length-panel {
+  .lower-left-controls {
     left: 16px;
     bottom: 16px;
+  }
+
+  .wind-speed-control,
+  .string-length-panel {
     width: 145px;
     padding: 9px 12px;
     font-size: 13px;

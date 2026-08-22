@@ -13,7 +13,7 @@ import {
   DoubleSide,
   Euler,
 } from 'three'
-import { lookVelocity } from './camera'
+import { lookVelocity } from './cameraInput'
 import {
   kiteMotion,
   kiteStringAnchor,

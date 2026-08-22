@@ -1,77 +1,50 @@
-// import { useFrame, useThree } from '@react-three/fiber'
-// import { Euler, Vector2 } from 'three'
-
-// let yaw = 0
-// let pitch = 0
-// let dragging = false
-// let lastX = 0
-// let lastY = 0
-
-// const rotation = new Euler(0, 0, 0, 'YXZ')
-
-// export const lookVelocity = new Vector2(0, 0)
-
-// export function CameraRig() {
-//   const camera = useThree((state) => state.camera)
-//   const gl = useThree((state) => state.gl)
-
-//   useFrame((_, delta) => {
-//     rotation.set(pitch, yaw, 0)
-//     camera.quaternion.setFromEuler(rotation)
-
-//     // Decay look velocity back to zero when player stops moving.
-//     const decay = 1 - Math.exp(-delta * 10)
-//     lookVelocity.lerp(new Vector2(0, 0), decay)
-//   })
-
-//   gl.domElement.onpointerdown = (event) => {
-//     dragging = true
-//     lastX = event.clientX
-//     lastY = event.clientY
-//     gl.domElement.setPointerCapture(event.pointerId)
-//   }
-
-//   gl.domElement.onpointermove = (event) => {
-//     if (!dragging) return
-
-//     const dx = event.clientX - lastX
-//     const dy = event.clientY - lastY
-
-//     lastX = event.clientX
-//     lastY = event.clientY
-
-//     yaw -= dx * 0.004
-//     pitch -= dy * 0.004
-//     pitch = Math.max(-1.2, Math.min(1.2, pitch))
-
-//     lookVelocity.set(dx, dy)
-//   }
-
-//   gl.domElement.onpointerup = (event) => {
-//     dragging = false
-//     gl.domElement.releasePointerCapture(event.pointerId)
-//   }
-
-//   return null
-// }
-
+import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Euler, MathUtils, Vector2 } from 'three'
+import { Euler, MathUtils, Quaternion, Vector3 } from 'three'
 import type { OrientationState } from '../hooks/useDeviceGyro'
+import { lookVelocity } from './cameraInput'
 
-let yaw = 0
-let pitch = 0
-let dragging = false
-let lastX = 0
-let lastY = 0
+const HALF_SQRT = Math.sqrt(0.5)
+const CAMERA_ALIGNMENT = new Quaternion(-HALF_SQRT, 0, 0, HALF_SQRT)
+const SCREEN_AXIS = new Vector3(0, 0, 1)
+const LOOK_SENSITIVITY = 0.004
 
-let baseAlpha: number | null = null
-let baseBeta: number | null = null
-let baseGamma: number | null = null
+function getScreenOrientation() {
+  if (typeof window === 'undefined') return 0
 
-const rotation = new Euler(0, 0, 0, 'YXZ')
+  const angle = window.screen.orientation?.angle
+  if (typeof angle === 'number') return MathUtils.degToRad(angle)
 
-export const lookVelocity = new Vector2(0, 0)
+  const legacyOrientation = (window as Window & { orientation?: number })
+    .orientation
+  return MathUtils.degToRad(legacyOrientation ?? 0)
+}
+
+function setDeviceQuaternion(
+  target: Quaternion,
+  euler: Euler,
+  screenRotation: Quaternion,
+  orientation: OrientationState
+) {
+  euler.set(
+    MathUtils.degToRad(orientation.beta),
+    MathUtils.degToRad(orientation.alpha),
+    -MathUtils.degToRad(orientation.gamma),
+    'YXZ'
+  )
+
+  target.setFromEuler(euler)
+  target.multiply(CAMERA_ALIGNMENT)
+  screenRotation.setFromAxisAngle(SCREEN_AXIS, -getScreenOrientation())
+  target.multiply(screenRotation)
+}
+
+function wrappedAngleDelta(current: number, previous: number) {
+  return (
+    MathUtils.euclideanModulo(current - previous + Math.PI, Math.PI * 2) -
+    Math.PI
+  )
+}
 
 type CameraRigProps = {
   cameraMode: boolean
@@ -82,94 +55,145 @@ export function CameraRig({ cameraMode, orientation }: CameraRigProps) {
   const camera = useThree((state) => state.camera)
   const gl = useThree((state) => state.gl)
 
-  const usePhysicalRotation =
-    cameraMode && orientation.permission === 'granted' && orientation.active
+  const yaw = useRef(0)
+  const pitch = useRef(0)
+  const dragging = useRef(false)
+  const lastPointer = useRef({ x: 0, y: 0 })
+  const physicalRotationActive = useRef(false)
+  const viewMotionReady = useRef(false)
 
-  useFrame((_, delta) => {
-    if (usePhysicalRotation) {
-      /**
-       * alpha: compass-like rotation around z axis
-       * beta: front/back tilt
-       * gamma: left/right tilt
-       *
-       * We calibrate the first active reading as neutral.
-       */
-      if (baseAlpha === null) {
-        baseAlpha = orientation.alpha
-        baseBeta = orientation.beta
-        baseGamma = orientation.gamma
-      }
+  const pointerRotation = useRef(new Euler(0, 0, 0, 'YXZ'))
+  const deviceEuler = useRef(new Euler(0, 0, 0, 'YXZ'))
+  const deviceQuaternion = useRef(new Quaternion())
+  const inverseCalibration = useRef(new Quaternion())
+  const cameraAtCalibration = useRef(new Quaternion())
+  const relativeRotation = useRef(new Quaternion())
+  const targetRotation = useRef(new Quaternion())
+  const screenRotation = useRef(new Quaternion())
+  const previousViewEuler = useRef(new Euler(0, 0, 0, 'YXZ'))
+  const currentViewEuler = useRef(new Euler(0, 0, 0, 'YXZ'))
 
-      const deltaAlpha = MathUtils.degToRad(orientation.alpha - (baseAlpha ?? 0))
-      const deltaBeta = MathUtils.degToRad(orientation.beta - (baseBeta ?? 0))
-      const deltaGamma = MathUtils.degToRad(orientation.gamma - (baseGamma ?? 0))
+  useEffect(() => {
+    const element = gl.domElement
 
-      /**
-       * Tune these mappings by feel.
-       *
-       * Holding the phone up:
-       * - turning left/right should affect yaw
-       * - tilting up/down should affect pitch
-       */
-      yaw = -deltaAlpha
-      pitch = MathUtils.clamp(deltaBeta * 0.8, -1.2, 1.2)
-
-      /**
-       * Feed physical motion into kite tilt.
-       * This keeps your Kite.tsx working with lookVelocity.
-       */
-      lookVelocity.set(
-        MathUtils.radToDeg(deltaGamma) * 0.7,
-        MathUtils.radToDeg(deltaBeta) * 0.7
+    function motionControlsActive() {
+      return (
+        cameraMode &&
+        orientation.permission === 'granted' &&
+        orientation.active
       )
     }
 
-    rotation.set(pitch, yaw, 0)
-    camera.quaternion.setFromEuler(rotation)
+    function handlePointerDown(event: PointerEvent) {
+      if (motionControlsActive()) return
 
-    const decay = 1 - Math.exp(-delta * 10)
-    lookVelocity.lerp(new Vector2(0, 0), decay)
+      dragging.current = true
+      lastPointer.current.x = event.clientX
+      lastPointer.current.y = event.clientY
+      element.setPointerCapture(event.pointerId)
+    }
+
+    function handlePointerMove(event: PointerEvent) {
+      if (motionControlsActive() || !dragging.current) return
+
+      const dx = event.clientX - lastPointer.current.x
+      const dy = event.clientY - lastPointer.current.y
+
+      lastPointer.current.x = event.clientX
+      lastPointer.current.y = event.clientY
+      yaw.current -= dx * LOOK_SENSITIVITY
+      pitch.current = MathUtils.clamp(
+        pitch.current - dy * LOOK_SENSITIVITY,
+        -1.2,
+        1.2
+      )
+      lookVelocity.set(dx, dy)
+    }
+
+    function endPointerDrag(event: PointerEvent) {
+      dragging.current = false
+      if (element.hasPointerCapture(event.pointerId)) {
+        element.releasePointerCapture(event.pointerId)
+      }
+    }
+
+    element.addEventListener('pointerdown', handlePointerDown)
+    element.addEventListener('pointermove', handlePointerMove)
+    element.addEventListener('pointerup', endPointerDrag)
+    element.addEventListener('pointercancel', endPointerDrag)
+
+    return () => {
+      element.removeEventListener('pointerdown', handlePointerDown)
+      element.removeEventListener('pointermove', handlePointerMove)
+      element.removeEventListener('pointerup', endPointerDrag)
+      element.removeEventListener('pointercancel', endPointerDrag)
+    }
+  }, [cameraMode, gl, orientation])
+
+  useFrame((_, delta) => {
+    const usePhysicalRotation =
+      cameraMode &&
+      orientation.permission === 'granted' &&
+      orientation.active
+
+    if (usePhysicalRotation) {
+      setDeviceQuaternion(
+        deviceQuaternion.current,
+        deviceEuler.current,
+        screenRotation.current,
+        orientation
+      )
+
+      if (!physicalRotationActive.current) {
+        inverseCalibration.current.copy(deviceQuaternion.current).invert()
+        cameraAtCalibration.current.copy(camera.quaternion)
+        physicalRotationActive.current = true
+        viewMotionReady.current = false
+      }
+
+      relativeRotation.current
+        .copy(deviceQuaternion.current)
+        .multiply(inverseCalibration.current)
+      targetRotation.current
+        .copy(relativeRotation.current)
+        .multiply(cameraAtCalibration.current)
+
+      const smoothing = 1 - Math.exp(-delta * 18)
+      camera.quaternion.slerp(targetRotation.current, smoothing)
+
+      currentViewEuler.current.setFromQuaternion(camera.quaternion, 'YXZ')
+      if (viewMotionReady.current) {
+        const yawDelta = wrappedAngleDelta(
+          currentViewEuler.current.y,
+          previousViewEuler.current.y
+        )
+        const pitchDelta = wrappedAngleDelta(
+          currentViewEuler.current.x,
+          previousViewEuler.current.x
+        )
+        lookVelocity.set(
+          MathUtils.clamp(-yawDelta / LOOK_SENSITIVITY, -30, 30),
+          MathUtils.clamp(-pitchDelta / LOOK_SENSITIVITY, -30, 30)
+        )
+      } else {
+        viewMotionReady.current = true
+      }
+      previousViewEuler.current.copy(currentViewEuler.current)
+    } else {
+      if (physicalRotationActive.current) {
+        pointerRotation.current.setFromQuaternion(camera.quaternion, 'YXZ')
+        pitch.current = MathUtils.clamp(pointerRotation.current.x, -1.2, 1.2)
+        yaw.current = pointerRotation.current.y
+        physicalRotationActive.current = false
+        viewMotionReady.current = false
+      }
+
+      pointerRotation.current.set(pitch.current, yaw.current, 0, 'YXZ')
+      camera.quaternion.setFromEuler(pointerRotation.current)
+    }
+
+    lookVelocity.multiplyScalar(Math.exp(-delta * 10))
   })
 
-  gl.domElement.onpointerdown = (event) => {
-    dragging = true
-    lastX = event.clientX
-    lastY = event.clientY
-    gl.domElement.setPointerCapture(event.pointerId)
-  }
-
-  gl.domElement.onpointermove = (event) => {
-    /**
-     * In camera passthrough + motion mode, ignore drag look.
-     * If motion is not active/granted, drag remains fallback.
-     */
-    if (usePhysicalRotation) return
-    if (!dragging) return
-
-    const dx = event.clientX - lastX
-    const dy = event.clientY - lastY
-
-    lastX = event.clientX
-    lastY = event.clientY
-
-    yaw -= dx * 0.004
-    pitch -= dy * 0.004
-    pitch = Math.max(-1.2, Math.min(1.2, pitch))
-
-    lookVelocity.set(dx, dy)
-  }
-
-  gl.domElement.onpointerup = (event) => {
-    dragging = false
-    gl.domElement.releasePointerCapture(event.pointerId)
-  }
-
   return null
-}
-
-// For use when exiting camera mode
-export function resetCameraOrientationCalibration() {
-  baseAlpha = null
-  baseBeta = null
-  baseGamma = null
 }
