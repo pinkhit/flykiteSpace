@@ -28,6 +28,7 @@ export default function App() {
   const [cameraMode, setCameraMode] = useState(false)
   const [discoMode, setDiscoMode] = useState(false)
   const [hudCollapsed, setHudCollapsed] = useState(false)
+  const [showCrosshair, setShowCrosshair] = useState(true)
   const [showHands, setShowHands] = useState(false)
   const [stringLength, setStringLength] = useState(8)
   const [pulseSpeed, setPulseSpeed] = useState(3.8)
@@ -146,6 +147,7 @@ export default function App() {
         lightingPreset={activeLightingPreset}
         motionPermission={orientation.permission}
         collapsed={hudCollapsed}
+        showCrosshair={showCrosshair}
         showHands={showHands}
         onToggleCameraMode={handleToggleCameraMode}
         onToggleDiscoMode={() => setDiscoMode((value) => !value)}
@@ -164,6 +166,7 @@ export default function App() {
         onSkyBrightnessChange={setSkyBrightness}
         onStringLengthChange={setStringLength}
         onToggleCollapsed={() => setHudCollapsed((value) => !value)}
+        onToggleCrosshair={() => setShowCrosshair((value) => !value)}
         onToggleHands={() => setShowHands((value) => !value)}
         onBubbleColorChange={setBubbleColor}
         onWaterColorChange={setWaterColor}

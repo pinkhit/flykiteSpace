@@ -35,11 +35,13 @@ type HudProps = {
   onSkyBrightnessChange: (value: number) => void
   onStringLengthChange: (value: number) => void
   onToggleCollapsed: () => void
+  onToggleCrosshair: () => void
   onToggleHands: () => void
   onWaterColorChange: (value: string) => void
   pulseSpeed: number
   pulseWidth: number
   reflectionClarity: number
+  showCrosshair: boolean
   showHands: boolean
   skyColor: string
   skyBrightness: number
@@ -78,11 +80,13 @@ export function Hud({
   onSkyBrightnessChange,
   onStringLengthChange,
   onToggleCollapsed,
+  onToggleCrosshair,
   onToggleHands,
   onWaterColorChange,
   pulseSpeed,
   pulseWidth,
   reflectionClarity,
+  showCrosshair,
   showHands,
   skyColor,
   skyBrightness,
@@ -105,10 +109,10 @@ export function Hud({
               come see more of my stuff :)
             </a>
           </div>
-
-          <Crosshair />
         </>
       )}
+
+      {showCrosshair && <Crosshair />}
 
       <div className="hud-controls">
         <button
@@ -119,6 +123,17 @@ export function Hud({
         >
           HUD: {collapsed ? 'Show' : 'Hide'}
         </button>
+
+        {!collapsed && (
+          <button
+            className="crosshair-toggle"
+            type="button"
+            aria-pressed={showCrosshair}
+            onClick={onToggleCrosshair}
+          >
+            Crosshair: {showCrosshair ? 'On' : 'Off'}
+          </button>
+        )}
 
         {!collapsed && (
           <button

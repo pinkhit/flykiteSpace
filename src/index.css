@@ -298,6 +298,7 @@ button {
 }
 
 .camera-toggle,
+.crosshair-toggle,
 .disco-toggle,
 .motion-toggle,
 .hands-toggle,
@@ -338,19 +339,24 @@ button {
   order: 4;
 }
 
-.camera-toggle {
+.crosshair-toggle {
   order: 5;
 }
 
-.motion-toggle {
-  order: 7;
-}
-
-.disco-toggle {
+.camera-toggle {
   order: 6;
 }
 
+.motion-toggle {
+  order: 8;
+}
+
+.disco-toggle {
+  order: 7;
+}
+
 .camera-toggle:active,
+.crosshair-toggle:active,
 .disco-toggle:active,
 .motion-toggle:active,
 .hands-toggle:active,
@@ -577,6 +583,7 @@ button {
   }
 
   .camera-toggle,
+  .crosshair-toggle,
   .disco-toggle,
   .motion-toggle,
   .hands-toggle,
