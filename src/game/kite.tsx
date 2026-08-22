@@ -11,6 +11,8 @@ import {
 } from 'three'
 import { lookVelocity } from './camera'
 
+
+// initialize variables
 const cameraForward = new Vector3()
 const targetPosition = new Vector3()
 const verticalOffset = new Vector3(0, 1.2, 0)
@@ -21,6 +23,7 @@ const KITE_SIZE = 1.5
 
 const localTilt = new Euler(0, 0, 0, 'XYZ')
 
+// A simple kite that tracks the center of an fps camera
 export function Kite() {
   const kiteRef = useRef<Mesh>(null)
   const currentRoll = useRef(0)
@@ -91,6 +94,7 @@ export function Kite() {
   })
 
   return (
+    // The kite is a simple plane bilboarding to the camera
     <mesh ref={kiteRef} position={[0, 2.5, -8]}>
       <planeGeometry args={[KITE_SIZE, KITE_SIZE]} />
       <meshBasicMaterial

@@ -45,8 +45,6 @@ export function GameCanvas({ cameraMode, orientation }: GameCanvasProps) {
       camera={{ position: [0, 1.6, 0], fov: 70 }}
       gl={{ antialias: true, alpha: true }}
     >
-      {!cameraMode && <color attach="background" args={['#8ec5ff']} />}
-
       <ambientLight intensity={1.2} />
       <directionalLight position={[5, 8, 4]} intensity={1.5} />
 
