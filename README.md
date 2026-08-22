@@ -1,73 +1,68 @@
-# React + TypeScript + Vite
+# Not Minecraft Kite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+An experimental browser-based kite experience built around responsive flight, a stylized procedural sky, and an interactive water surface. The project combines a real-time 3D scene with desktop pointer controls, mobile device orientation, and an optional camera-passthrough mode for a lightweight mixed-reality presentation.
 
-Currently, two official plugins are available:
+## Experience highlights
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Responsive kite motion driven by player look input, line length, and layered wind simulation
+- Custom GLSL sky rendering with animated flow-map clouds and configurable atmosphere
+- Reflective water with procedural pulses, contact ripples, wakes, foam, and submersion effects
+- Desktop pointer controls plus permission-aware device orientation on supported mobile browsers
+- Optional rear-camera passthrough using the browser MediaDevices API
+- Live developer HUD for tuning wind, water, lighting, cloud, and visual-effect parameters
+- Alternate disco palette for real-time color animation across the scene
 
-## React Compiler
+## Tech stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Layer | Technology | Role in the project |
+| --- | --- | --- |
+| Application | React 19 + TypeScript | Component architecture, UI state, browser integrations, and strongly typed game systems |
+| 3D framework | React Three Fiber | Declarative Three.js scene graph and frame-loop integration for React |
+| Rendering | Three.js + WebGL | Cameras, lighting, geometry, materials, reflections, instancing, and real-time scene rendering |
+| Scene utilities | Drei | Lightweight helpers for texture loading and Three.js workflows |
+| Shaders and VFX | GLSL + custom Three.js materials | Procedural clouds, water deformation, reflection treatment, ripples, wakes, foam, and color effects |
+| Device features | MediaDevices + Device Orientation APIs | Rear-camera passthrough and motion-controlled viewing on compatible devices |
+| Build pipeline | Vite 8 | Fast local development, hot module replacement, and optimized production builds |
+| Quality tooling | ESLint + TypeScript project builds | Static analysis and compile-time validation |
 
-## Expanding the ESLint configuration
+## Project structure
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+src/
+├── components/   # HUD, crosshair, overlays, and camera passthrough
+├── game/         # Scene, camera rig, kite systems, environment, shaders, and VFX
+├── hooks/        # Browser input and device-orientation integration
+├── App.tsx       # Runtime state and feature composition
+└── main.tsx      # Application entry point
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Running locally
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Install dependencies and launch the development server:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
+
+Create and preview a production build:
+
+```bash
+npm run build
+npm run preview
+```
+
+Run the linter with:
+
+```bash
+npm run lint
+```
+
+Camera access and device orientation require browser permission and a secure context. Use HTTPS when testing those features on a physical device.
+
+## Controls
+
+- Drag across the scene to look around and influence the kite.
+- Use the HUD to tune the environment, flight line, water response, and rendering palette at runtime.
+- Enable camera mode to place the kite over a live rear-camera feed.
+- On supported mobile devices, grant motion access to control the view with physical device movement.
