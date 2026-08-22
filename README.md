@@ -1,4 +1,4 @@
-# flykite.space
+# 🪁 flykite.space 🪁
 
 A browser-based space to fly a kite. Designed with both mobile and desktop in mind. Features a stylized procedural sky and an interactive water surface.
 
