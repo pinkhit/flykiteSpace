@@ -84,7 +84,7 @@ export const LIGHTING_PRESETS: readonly LightingPreset[] = [
       horizonColor: '#536b9f',
       lightColor: '#c5dcff',
       reflectionClarity: 0.85,
-      skyBrightness: 0.5,
+      skyBrightness: 1.5,
       skyColor: '#0c1838',
       waterColor: '#092744',
       windSpeed: 3.2,
