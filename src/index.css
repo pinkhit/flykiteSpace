@@ -494,7 +494,7 @@ button {
   gap: 8px;
 }
 
-.wind-speed-control,
+.wind-speed-panel,
 .string-length-panel {
   width: 160px;
   padding: 10px 14px;
@@ -503,38 +503,18 @@ button {
   color: white;
   background: #0645ad;
   backdrop-filter: blur(8px);
-}
-
-.wind-speed-control > span {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 5px;
-}
-
-.wind-speed-control output {
-  font-variant-numeric: tabular-nums;
-  opacity: 0.82;
-}
-
-.wind-speed-control input {
-  display: block;
-  width: 100%;
-  margin: 0;
-  accent-color: #8ee8ff;
-  touch-action: pan-x;
-}
-
-.string-length-panel {
   transition:
     width 160ms ease,
     border-radius 160ms ease;
 }
 
+.wind-speed-panel[open],
 .string-length-panel[open] {
   width: 96px;
   border-radius: 14px;
 }
 
+.wind-speed-panel summary,
 .string-length-panel summary {
   position: relative;
   display: flex;
@@ -545,12 +525,19 @@ button {
   list-style: none;
 }
 
+.wind-speed-panel summary {
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
 .string-length-panel[open] summary {
   flex-direction: column;
   justify-content: center;
   gap: 2px;
 }
 
+.wind-speed-panel summary::after,
 .string-length-panel summary::after {
   content: "▴";
   position: absolute;
@@ -560,24 +547,32 @@ button {
   transition: transform 160ms ease;
 }
 
+.wind-speed-panel[open] summary::after,
 .string-length-panel[open] summary::after {
   transform: translateY(-50%) rotate(180deg);
 }
 
+.wind-speed-panel summary::-webkit-details-marker,
 .string-length-panel summary::-webkit-details-marker {
   display: none;
 }
 
+.wind-speed-panel summary output,
 .string-length-panel summary output {
   margin-left: auto;
   font-variant-numeric: tabular-nums;
   opacity: 0.82;
 }
 
+.wind-speed-panel summary output {
+  margin-left: 0;
+}
+
 .string-length-panel[open] summary output {
   margin-left: 0;
 }
 
+.wind-speed-panel-content,
 .string-length-panel-content {
   display: flex;
   justify-content: center;
@@ -586,6 +581,7 @@ button {
   border-top: 1px solid rgba(255, 255, 255, 0.22);
 }
 
+.wind-speed-scale,
 .string-length-scale {
   display: flex;
   flex-direction: column;
@@ -594,6 +590,7 @@ button {
   font-size: 11px;
 }
 
+.wind-speed-slider,
 .string-length-slider {
   width: 28px;
   height: 170px;
@@ -642,17 +639,19 @@ button {
     bottom: 16px;
   }
 
-  .wind-speed-control,
+  .wind-speed-panel,
   .string-length-panel {
     width: 145px;
     padding: 9px 12px;
     font-size: 13px;
   }
 
+  .wind-speed-panel[open],
   .string-length-panel[open] {
     width: 92px;
   }
 
+  .wind-speed-slider,
   .string-length-slider {
     height: 150px;
   }

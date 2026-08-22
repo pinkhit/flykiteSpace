@@ -390,22 +390,33 @@ export function Hud({
       </div>
 
       <div className="lower-left-controls">
-        <label className="wind-speed-control">
-          <span>
-            Wind speed <output>{windSpeed.toFixed(1)}</output>
-          </span>
-          <input
-            type="range"
-            aria-label="Wind speed"
-            min="0"
-            max="10"
-            step="0.1"
-            value={windSpeed}
-            onChange={(event) =>
-              onWindSpeedChange(Number(event.currentTarget.value))
-            }
-          />
-        </label>
+        {!collapsed && (
+          <details className="wind-speed-panel">
+            <summary>
+              <span>Wind speed</span>
+              <output>{windSpeed.toFixed(1)}</output>
+            </summary>
+
+            <div className="wind-speed-panel-content">
+              <label className="wind-speed-scale">
+                <span>10</span>
+                <input
+                  className="wind-speed-slider"
+                  type="range"
+                  aria-label="Wind speed"
+                  min="0"
+                  max="10"
+                  step="0.1"
+                  value={windSpeed}
+                  onChange={(event) =>
+                    onWindSpeedChange(Number(event.currentTarget.value))
+                  }
+                />
+                <span>0</span>
+              </label>
+            </div>
+          </details>
+        )}
 
         <details className="string-length-panel">
           <summary>
