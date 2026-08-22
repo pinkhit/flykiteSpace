@@ -39,7 +39,7 @@ export const ACID_WASH_LIGHTING: LightingPresetValues = {
 }
 
 export const DUSK_GLOW_LIGHTING = {
-  bubbleColor: '#fdf5ff',
+  bubbleColor: '#fd5f4d',
   cloudColor: '#f9dcdc',
   cloudCoverage: 0.75,
   cloudSeed: 228,
@@ -57,12 +57,12 @@ export const LIGHTING_PRESETS: readonly LightingPreset[] = [
     id: 'sunny-day',
     label: 'Sunny Day',
     values: {
-      bubbleColor: '#ffffff',
+      bubbleColor: '#49e4fc',
       cloudColor: '#ffffff',
       cloudCoverage: 0.25,
       cloudSeed: 34,
       horizonColor: '#02e6e6',
-      lightColor: '#ffffff',
+      lightColor: '#fff8d6',
       skyBrightness: 1.2,
       skyColor: '#70bcff',
       waterColor: '#00497a',
@@ -94,7 +94,7 @@ export const LIGHTING_PRESETS: readonly LightingPreset[] = [
     id: 'blood-moon',
     label: 'Blood Moon',
     values: {
-      bubbleColor: '#ffffff',
+      bubbleColor: '#444141',
       cloudColor: '#443c3c',
       cloudCoverage: 0.55,
       cloudSeed: 126,
