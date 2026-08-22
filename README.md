@@ -1,16 +1,16 @@
-# Not Minecraft Kite
+# flykite.space
 
-An experimental browser-based kite experience built around responsive flight, a stylized procedural sky, and an interactive water surface. The project combines a real-time 3D scene with desktop pointer controls, mobile device orientation, and an optional camera-passthrough mode for a lightweight mixed-reality presentation.
+A browser-based space to fly a kite. Features a stylized procedural sky and an interactive water surface. The project combines a real-time 3D scene with desktop pointer controls, mobile device orientation, and an optional camera-passthrough mode for a lightweight mixed-reality presentation.
 
 ## Experience highlights
 
-- Responsive kite motion driven by player look input, line length, and layered wind simulation
+- Responsive kite flying driven by look input and a wind simulation
 - Custom GLSL sky rendering with animated flow-map clouds and configurable atmosphere
 - Reflective water with procedural pulses, contact ripples, wakes, foam, and submersion effects
-- Desktop pointer controls plus permission-aware device orientation on supported mobile browsers
-- Optional rear-camera passthrough using the browser MediaDevices API
-- Live developer HUD for tuning wind, water, lighting, cloud, and visual-effect parameters
-- Alternate disco palette for real-time color animation across the scene
+- Desktop/Mobile pointer controls & permission-aware device orientation on supported mobile browsers
+- Optional XR camera passthrough using the browser MediaDevices API
+- HUD for tuning wind, water, lighting, cloud, and visual-effect parameters
+- disco mode
 
 ## Tech stack
 
