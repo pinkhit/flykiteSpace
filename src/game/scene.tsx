@@ -114,11 +114,12 @@ export function GameCanvas({
 
       <Kite
         discoMode={discoMode}
+        underwaterEffect={!cameraMode}
         stringLength={stringLength}
         windSpeed={windSpeed}
       />
       <Hand visible={showHands} />
-      <KiteString discoMode={discoMode} />
+      <KiteString discoMode={discoMode} underwaterEffect={!cameraMode} />
       <KiteSubmersionEffects
         bubbleColor={bubbleColor}
         discoMode={discoMode}

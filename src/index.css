@@ -269,10 +269,32 @@ button {
   position: absolute;
   right: 24px;
   top: 24px;
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+  padding-left: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(255, 255, 255, 0.72) rgba(6, 69, 173, 0.35);
+  scrollbar-width: thin;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
+}
+
+.hud-controls::-webkit-scrollbar {
+  width: 8px;
+}
+
+.hud-controls::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(6, 69, 173, 0.35);
+}
+
+.hud-controls::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .camera-toggle,
@@ -288,6 +310,44 @@ button {
   background: #0645ad;
   backdrop-filter: blur(8px);
   cursor: pointer;
+}
+
+.hud-collapse-toggle {
+  order: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.hud-collapse-toggle[aria-expanded="false"] {
+  font-weight: 400;
+}
+
+.presets-controls {
+  order: 1;
+}
+
+.sky-controls {
+  order: 2;
+}
+
+.water-controls {
+  order: 3;
+}
+
+.hands-toggle {
+  order: 4;
+}
+
+.camera-toggle {
+  order: 5;
+}
+
+.motion-toggle {
+  order: 7;
+}
+
+.disco-toggle {
+  order: 6;
 }
 
 .camera-toggle:active,
@@ -388,6 +448,35 @@ button {
   cursor: pointer;
 }
 
+.preset-list {
+  display: grid;
+  gap: 7px;
+}
+
+.preset-option {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+  text-align: left;
+  cursor: pointer;
+}
+
+.preset-option:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.preset-option[aria-pressed="true"] {
+  color: #0645ad;
+  background: white;
+}
+
+.preset-option:active {
+  transform: scale(0.98);
+}
+
 .string-length-panel {
   pointer-events: auto;
   position: absolute;
@@ -483,6 +572,8 @@ button {
   .hud-controls {
     right: 16px;
     top: 16px;
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
   }
 
   .camera-toggle,
@@ -493,6 +584,10 @@ button {
     width: 145px;
     padding: 9px 12px;
     font-size: 13px;
+  }
+
+  .hud-collapse-toggle {
+    font-size: 16px;
   }
 
   .settings-panel {

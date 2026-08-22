@@ -1,4 +1,8 @@
 import { Crosshair } from './xhair'
+import {
+  LIGHTING_PRESETS,
+  type LightingPresetId,
+} from '../game/lightingPresets'
 
 type HudProps = {
   bubbleColor: string
@@ -11,6 +15,7 @@ type HudProps = {
   windSpeed: number
   horizonColor: string
   lightColor: string
+  lightingPreset: LightingPresetId | null
   motionPermission: 'unknown' | 'granted' | 'denied'
   onBubbleColorChange: (value: string) => void
   onCloudColorChange: (value: string) => void
@@ -19,6 +24,7 @@ type HudProps = {
   onWindSpeedChange: (value: number) => void
   onHorizonColorChange: (value: string) => void
   onLightColorChange: (value: string) => void
+  onLightingPresetChange: (value: LightingPresetId) => void
   onToggleDiscoMode: () => void
   onToggleCameraMode: () => void
   onEnableMotion: () => void
@@ -52,6 +58,7 @@ export function Hud({
   windSpeed,
   horizonColor,
   lightColor,
+  lightingPreset,
   motionPermission,
   onBubbleColorChange,
   onCloudColorChange,
@@ -60,6 +67,7 @@ export function Hud({
   onWindSpeedChange,
   onHorizonColorChange,
   onLightColorChange,
+  onLightingPresetChange,
   onToggleDiscoMode,
   onToggleCameraMode,
   onEnableMotion,
@@ -103,7 +111,12 @@ export function Hud({
       )}
 
       <div className="hud-controls">
-        <button className="hud-collapse-toggle" type="button" onClick={onToggleCollapsed}>
+        <button
+          className="hud-collapse-toggle"
+          type="button"
+          aria-expanded={!collapsed}
+          onClick={onToggleCollapsed}
+        >
           HUD: {collapsed ? 'Show' : 'Hide'}
         </button>
 
@@ -113,7 +126,7 @@ export function Hud({
             type="button"
             onClick={onToggleCameraMode}
           >
-            Camera BG: {cameraMode ? 'On' : 'Off'}
+            Camera: {cameraMode ? 'On' : 'Off'}
           </button>
         )}
 
@@ -146,6 +159,24 @@ export function Hud({
             Enable Motion
           </button>
         )}
+
+        {!collapsed && <details className="settings-panel presets-controls">
+          <summary>Presets</summary>
+
+          <div className="settings-panel-content preset-list">
+            {LIGHTING_PRESETS.map((preset) => (
+              <button
+                className="preset-option"
+                type="button"
+                aria-pressed={lightingPreset === preset.id}
+                key={preset.id}
+                onClick={() => onLightingPresetChange(preset.id)}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </details>}
 
         {!collapsed && <details className="settings-panel water-controls">
           <summary>Water</summary>

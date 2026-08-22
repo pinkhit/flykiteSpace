@@ -2,12 +2,14 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useTexture } from '@react-three/drei'
 import { useEffect, useMemo, useRef } from 'react'
 import {
+  Color,
   Mesh,
   NearestFilter,
   Quaternion,
   Vector3,
   MathUtils,
   MeshBasicMaterial,
+  ShaderMaterial,
   DoubleSide,
   Euler,
 } from 'three'
@@ -30,6 +32,73 @@ const verticalOffset = new Vector3(0, 1.2, 0)
 const KITE_FOLLOW_STRENGTH = 3.5
 const KITE_SIZE = 1.5
 
+const underwaterKiteVertexShader = /* glsl */ `
+  uniform float uTime;
+  uniform float uWaterLevel;
+  varying float vDepth;
+  varying vec2 vUv;
+
+  void main() {
+    vUv = uv;
+    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+    vDepth = uWaterLevel - worldPosition.y;
+    float underwater = smoothstep(-0.01, 0.22, vDepth);
+    float wave = sin(
+      worldPosition.y * 7.0 + worldPosition.z * 0.55 + uTime * 3.2
+    );
+    wave += sin(
+      worldPosition.y * 12.0 - worldPosition.x * 0.8 - uTime * 2.1
+    ) * 0.45;
+    worldPosition.x += wave * 0.035 * underwater;
+    worldPosition.z += sin(
+      worldPosition.x * 5.0 + uTime * 2.6
+    ) * 0.018 * underwater;
+    gl_Position = projectionMatrix * viewMatrix * worldPosition;
+  }
+`
+
+const underwaterKiteFragmentShader = /* glsl */ `
+  uniform sampler2D uMap;
+  uniform float uTime;
+  uniform vec3 uTint;
+  varying float vDepth;
+  varying vec2 vUv;
+
+  void main() {
+    if (vDepth <= 0.0) discard;
+
+    float depthStrength = smoothstep(0.0, 0.8, vDepth);
+    vec2 distortedUv = vUv;
+    distortedUv.x += sin(
+      vUv.y * 31.0 + uTime * 3.4
+    ) * 0.012 * depthStrength;
+    distortedUv.y += sin(
+      vUv.x * 24.0 - uTime * 2.7
+    ) * 0.007 * depthStrength;
+
+    vec4 kiteSample = texture2D(uMap, distortedUv);
+    if (kiteSample.a < 0.1) discard;
+
+    float surfaceReveal = smoothstep(0.0, 0.14, vDepth);
+    float deepFade = mix(1.0, 0.48, smoothstep(0.7, 6.0, vDepth));
+    float shimmer = 0.88 + sin(
+      uTime * 3.0 + vUv.y * 22.0
+    ) * 0.12;
+    vec3 underwaterColor = mix(
+      kiteSample.rgb * uTint,
+      vec3(0.42, 0.78, 0.9),
+      0.24
+    );
+
+    gl_FragColor = vec4(
+      underwaterColor,
+      kiteSample.a * 0.32 * surfaceReveal * deepFade * shimmer
+    );
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }
+`
+
 const localTilt = new Euler(0, 0, 0, 'XYZ')
 const localStringAttachment = new Vector3()
 const bubbleRight = new Vector3()
@@ -38,14 +107,21 @@ const measuredVelocity = new Vector3()
 
 type KiteProps = {
   discoMode: boolean
+  underwaterEffect: boolean
   stringLength: number
   windSpeed: number
 }
 
 // A simple kite that tracks the center of an fps camera
-export function Kite({ discoMode, stringLength, windSpeed }: KiteProps) {
+export function Kite({
+  discoMode,
+  underwaterEffect,
+  stringLength,
+  windSpeed,
+}: KiteProps) {
   const kiteRef = useRef<Mesh>(null)
   const kiteMaterialRef = useRef<MeshBasicMaterial>(null)
+  const underwaterMaterialRef = useRef<ShaderMaterial>(null)
   const currentRoll = useRef(0)
   const currentPitchTilt = useRef(0)
   const idleBlend = useRef(0)
@@ -65,6 +141,15 @@ export function Kite({ discoMode, stringLength, windSpeed }: KiteProps) {
     texture.needsUpdate = true
     return texture
   }, [sourceTexture])
+  const underwaterUniforms = useMemo(
+    () => ({
+      uMap: { value: kiteTexture },
+      uTime: { value: 0 },
+      uTint: { value: new Color('#ffffff') },
+      uWaterLevel: { value: WATER_LEVEL },
+    }),
+    [kiteTexture]
+  )
 
   useEffect(() => () => kiteTexture.dispose(), [kiteTexture])
 
@@ -83,6 +168,13 @@ export function Kite({ discoMode, stringLength, windSpeed }: KiteProps) {
       } else {
         kiteMaterialRef.current.color.set('#ffffff')
       }
+    }
+    if (underwaterMaterialRef.current && kiteMaterialRef.current) {
+      underwaterMaterialRef.current.uniforms.uTime.value =
+        state.clock.elapsedTime
+      underwaterMaterialRef.current.uniforms.uTint.value.copy(
+        kiteMaterialRef.current.color
+      )
     }
 
     let cameraAngularSpeed = 0
@@ -302,6 +394,25 @@ export function Kite({ discoMode, stringLength, windSpeed }: KiteProps) {
         alphaTest={0.1}
         side={DoubleSide}
       />
+
+      <mesh
+        frustumCulled={false}
+        renderOrder={850}
+        visible={underwaterEffect}
+      >
+        <planeGeometry args={[KITE_SIZE, KITE_SIZE, 24, 24]} />
+        <shaderMaterial
+          ref={underwaterMaterialRef}
+          depthTest={false}
+          depthWrite={false}
+          fragmentShader={underwaterKiteFragmentShader}
+          side={DoubleSide}
+          toneMapped={false}
+          transparent
+          uniforms={underwaterUniforms}
+          vertexShader={underwaterKiteVertexShader}
+        />
+      </mesh>
     </mesh>
   )
 }

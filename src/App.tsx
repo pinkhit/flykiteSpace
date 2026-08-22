@@ -17,6 +17,11 @@ import { Hud } from './components/HUD'
 import { CameraBackground } from './components/passThroughCam'
 import { useDeviceOrientation } from './hooks/useDeviceGyro'
 import { resetCameraOrientationCalibration } from './game/camera'
+import {
+  DUSK_GLOW_LIGHTING,
+  LIGHTING_PRESETS,
+  type LightingPresetId,
+} from './game/lightingPresets'
 import './index.css'
 
 export default function App() {
@@ -27,18 +32,45 @@ export default function App() {
   const [stringLength, setStringLength] = useState(8)
   const [pulseSpeed, setPulseSpeed] = useState(3.8)
   const [pulseWidth, setPulseWidth] = useState(2.6)
-  const [waterColor, setWaterColor] = useState('#4069c9')
-  const [bubbleColor, setBubbleColor] = useState('#58de16')
-  const [reflectionClarity, setReflectionClarity] = useState(0.67)
-  const [windSpeed, setWindSpeed] = useState(2.2)
-  const [cloudCoverage, setCloudCoverage] = useState(0.8)
-  const [cloudColor, setCloudColor] = useState('#3700ff')
-  const [cloudSeed, setCloudSeed] = useState(88)
-  const [skyColor, setSkyColor] = useState('#a7de7a')
-  const [horizonColor, setHorizonColor] = useState('#dede43')
-  const [lightColor, setLightColor] = useState('#43a758')
-  const [skyBrightness, setSkyBrightness] = useState(1.1)
+  const [waterColor, setWaterColor] = useState(DUSK_GLOW_LIGHTING.waterColor)
+  const [bubbleColor, setBubbleColor] = useState(
+    DUSK_GLOW_LIGHTING.bubbleColor
+  )
+  const [reflectionClarity, setReflectionClarity] = useState(
+    DUSK_GLOW_LIGHTING.reflectionClarity
+  )
+  const [windSpeed, setWindSpeed] = useState(DUSK_GLOW_LIGHTING.windSpeed)
+  const [cloudCoverage, setCloudCoverage] = useState(
+    DUSK_GLOW_LIGHTING.cloudCoverage
+  )
+  const [cloudColor, setCloudColor] = useState(DUSK_GLOW_LIGHTING.cloudColor)
+  const [cloudSeed, setCloudSeed] = useState(DUSK_GLOW_LIGHTING.cloudSeed)
+  const [skyColor, setSkyColor] = useState(DUSK_GLOW_LIGHTING.skyColor)
+  const [horizonColor, setHorizonColor] = useState(
+    DUSK_GLOW_LIGHTING.horizonColor
+  )
+  const [lightColor, setLightColor] = useState(DUSK_GLOW_LIGHTING.lightColor)
+  const [skyBrightness, setSkyBrightness] = useState(
+    DUSK_GLOW_LIGHTING.skyBrightness
+  )
   const orientation = useDeviceOrientation(cameraMode)
+
+  const activeLightingPreset =
+    LIGHTING_PRESETS.find(({ values }) =>
+      (values.bubbleColor === undefined ||
+        values.bubbleColor === bubbleColor) &&
+      values.cloudColor === cloudColor &&
+      values.cloudCoverage === cloudCoverage &&
+      values.cloudSeed === cloudSeed &&
+      values.horizonColor === horizonColor &&
+      values.lightColor === lightColor &&
+      (values.reflectionClarity === undefined ||
+        values.reflectionClarity === reflectionClarity) &&
+      values.skyBrightness === skyBrightness &&
+      values.skyColor === skyColor &&
+      (values.waterColor === undefined || values.waterColor === waterColor) &&
+      (values.windSpeed === undefined || values.windSpeed === windSpeed)
+    )?.id ?? null
 
   async function handleEnableMotion() {
     await orientation.requestPermission()
@@ -48,6 +80,32 @@ export default function App() {
   function handleToggleCameraMode() {
     resetCameraOrientationCalibration()
     setCameraMode((value) => !value)
+  }
+
+  function handleLightingPresetChange(presetId: LightingPresetId) {
+    const preset = LIGHTING_PRESETS.find(({ id }) => id === presetId)
+
+    if (!preset) return
+
+    if (preset.values.bubbleColor !== undefined) {
+      setBubbleColor(preset.values.bubbleColor)
+    }
+    setCloudColor(preset.values.cloudColor)
+    setCloudCoverage(preset.values.cloudCoverage)
+    setCloudSeed(preset.values.cloudSeed)
+    setHorizonColor(preset.values.horizonColor)
+    setLightColor(preset.values.lightColor)
+    if (preset.values.reflectionClarity !== undefined) {
+      setReflectionClarity(preset.values.reflectionClarity)
+    }
+    setSkyBrightness(preset.values.skyBrightness)
+    setSkyColor(preset.values.skyColor)
+    if (preset.values.waterColor !== undefined) {
+      setWaterColor(preset.values.waterColor)
+    }
+    if (preset.values.windSpeed !== undefined) {
+      setWindSpeed(preset.values.windSpeed)
+    }
   }
 
   return (
@@ -85,6 +143,7 @@ export default function App() {
         windSpeed={windSpeed}
         horizonColor={horizonColor}
         lightColor={lightColor}
+        lightingPreset={activeLightingPreset}
         motionPermission={orientation.permission}
         collapsed={hudCollapsed}
         showHands={showHands}
@@ -100,6 +159,7 @@ export default function App() {
         onWindSpeedChange={setWindSpeed}
         onHorizonColorChange={setHorizonColor}
         onLightColorChange={setLightColor}
+        onLightingPresetChange={handleLightingPresetChange}
         onSkyColorChange={setSkyColor}
         onSkyBrightnessChange={setSkyBrightness}
         onStringLengthChange={setStringLength}
