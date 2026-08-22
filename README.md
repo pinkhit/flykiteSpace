@@ -1,6 +1,6 @@
-# flykite.space
+# 🪁 flykite.space 🪁
 
-A browser-based space to fly a kite. Features a stylized procedural sky and an interactive water surface. The project combines a real-time 3D scene with desktop pointer controls, mobile device orientation, and an optional camera-passthrough mode for a lightweight mixed-reality presentation.
+A browser-based space to fly a kite. Designed with both mobile and desktop in mind. Features a stylized procedural sky and an interactive water surface.
 
 ## Experience highlights
 
