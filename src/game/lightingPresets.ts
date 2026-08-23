@@ -45,10 +45,10 @@ export const DUSK_GLOW_LIGHTING = {
   cloudSeed: 228,
   horizonColor: '#f6e5ff',
   lightColor: '#ffb3b3',
-  reflectionClarity: 1,
+  reflectionClarity: 0.45,
   skyBrightness: 0.7,
   skyColor: '#adbbff',
-  waterColor: '#00c0f0',
+  waterColor: '#00238a',
   windSpeed: 4.4,
 } satisfies LightingPresetValues
 
