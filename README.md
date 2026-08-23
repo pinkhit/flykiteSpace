@@ -1,68 +1,79 @@
 # 🪁 flykite.space 🪁
 
-A browser-based space to fly a kite. Designed with both mobile and desktop in mind. Features a stylized procedural sky and an interactive water surface.
+A kite flying browser experience. 
 
-## Experience highlights
+## Highlights
 
-- Responsive kite flying driven by look input and a wind simulation
-- Custom GLSL sky rendering with animated flow-map clouds and configurable atmosphere
-- Reflective water with procedural pulses, contact ripples, wakes, foam, and submersion effects
-- Desktop/Mobile pointer controls & permission-aware device orientation on supported mobile browsers
-- Optional XR camera passthrough using the browser MediaDevices API
-- HUD for tuning wind, water, lighting, cloud, and visual-effect parameters
-- disco mode
+- Physics-inspired kite motion responds to player input, wind, lift, and gusts.
+- Custom sky and water shaders provide moving clouds, planar reflections, ripples, wakes, and foam.
+- Water contact switches to underwater kite and string effects, then emits bubbles and low-gravity voxel splashes.
+- Lighting presets and live controls make it easy to move between natural and highly stylized color palettes.
+- Supports pointer and touch controls, device orientation, and optional rear-camera passthrough.
 
-## Tech stack
+## Graphics and gameplay
 
-| Layer | Technology | Role in the project |
-| --- | --- | --- |
-| Application | React 19 + TypeScript | Component architecture, UI state, browser integrations, and strongly typed game systems |
-| 3D framework | React Three Fiber | Declarative Three.js scene graph and frame-loop integration for React |
-| Rendering | Three.js + WebGL | Cameras, lighting, geometry, materials, reflections, instancing, and real-time scene rendering |
-| Scene utilities | Drei | Lightweight helpers for texture loading and Three.js workflows |
-| Shaders and VFX | GLSL + custom Three.js materials | Procedural clouds, water deformation, reflection treatment, ripples, wakes, foam, and color effects |
-| Device features | MediaDevices + Device Orientation APIs | Rear-camera passthrough and motion-controlled viewing on compatible devices |
-| Build pipeline | Vite 8 | Fast local development, hot module replacement, and optimized production builds |
-| Quality tooling | ESLint + TypeScript project builds | Static analysis and compile-time validation |
+### Kite
+
+- The kite follows the camera while wind and player movement control its position, roll, and pitch.
+- Motion uses frame-rate-independent smoothing for consistent behavior across devices.
+- The string is generated at runtime with sag, sideways movement, and vibration.
+
+### Environment and VFX
+
+- Procedural cloud textures are generated on the CPU and animated in a custom sky shader.
+- The water uses a fixed planar reflection target and computes most surface detail in the fragment shader.
+- Kite contact drives the water wake, ripples, pixel foam, bubbles, and voxel splash particles.
+- Particle systems use instancing and fixed-size pools to avoid continuous allocation during gameplay.
+
+## Mobile performance
+
+- Rendering resolution is capped at 1.5 device pixel ratio.
+- Reflections use a fixed 256×256 render target.
+- Only active particle instances are uploaded and drawn.
+- Particle emission and simulation time are capped to prevent large bursts after a slow frame or background-tab resume.
+- The cloud and water effects avoid volumetric rendering and ray marching.
+
+## Stack
+
+| Layer | Implementation |
+| --- | --- |
+| Application | React 19 and TypeScript |
+| Scene and frame loop | React Three Fiber |
+| Rendering | Three.js, WebGL, custom GLSL, render targets, and instancing |
+| Scene helpers | Drei texture loading and wide-line rendering |
+| Browser input | Pointer Events, MediaDevices, and Device Orientation APIs |
+| Build and validation | Vite 8, TypeScript project builds, and ESLint |
 
 ## Project structure
 
 ```text
 src/
-├── components/   # HUD, crosshair, overlays, and camera passthrough
-├── game/         # Scene, camera rig, kite systems, environment, shaders, and VFX
-├── hooks/        # Browser input and device-orientation integration
+├── components/   # HUD, crosshair, camera feed, and device overlays
+├── game/         # Camera, kite motion, environment shaders, lighting, and VFX
+├── hooks/        # Device-orientation permission and sensor state
 ├── App.tsx       # Runtime state and feature composition
 └── main.tsx      # Application entry point
 ```
 
 ## Running locally
 
-Install dependencies and launch the development server:
-
 ```bash
 npm install
 npm run dev
 ```
 
-Create and preview a production build:
+Production and validation commands:
 
 ```bash
 npm run build
-npm run preview
-```
-
-Run the linter with:
-
-```bash
 npm run lint
+npm run preview
 ```
 
 Camera access and device orientation require browser permission and a secure context. Use HTTPS when testing those features on a physical device.
 
 ## Controls
 
-- Drag across the scene to look around and influence the kite.
-- Use the HUD to tune the environment, flight line, water response, and rendering palette at runtime.
-- Enable camera mode to place the kite over a live rear-camera feed.
-- On supported mobile devices, grant motion access to control the view with physical device movement.
+- Drag across the scene to look around and steer the kite.
+- Use the HUD to tune the renderer and wind response at runtime.
+- Enable Camera mode for rear-camera passthrough; enable Motion to use device orientation when supported.

@@ -46,6 +46,10 @@ const radialPulseShader = /* glsl */ `
   uniform float kiteFoamAges[${KITE_FOAM_COUNT}];
   uniform float kiteFoamStrengths[${KITE_FOAM_COUNT}];
   uniform float kiteFoamStrength;
+  const float inactiveEffectThreshold = 0.001;
+  const float foamMaximumDistanceFromKite = 1.35;
+  const float foamRadialCullWidth = 0.12;
+  const float rippleGaussianCutoffWidths = 3.0;
 
   float pixelHash(vec2 cell) {
     return fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
@@ -55,9 +59,17 @@ const radialPulseShader = /* glsl */ `
     const float pixelsPerUnit = 14.0;
     float froth = 0.0;
 
+    if (kiteFoamStrength <= inactiveEffectThreshold) return 0.0;
+
     // Every slot is one independent, hard-edged pixel ring. The CPU activates
     // only one slot per skim event; there is no generated companion ring.
     for (int index = 0; index < ${KITE_FOAM_COUNT}; index += 1) {
+      float eventStrength = kiteFoamStrengths[index];
+      if (eventStrength <= inactiveEffectThreshold) continue;
+      float distanceFromKite = length(
+        kiteFoamCenters[index] - kiteFoamCenter
+      );
+      if (distanceFromKite >= foamMaximumDistanceFromKite) continue;
       vec2 fromRing = worldPosition - kiteFoamCenters[index];
       vec2 pixelPosition = (
         floor(fromRing * pixelsPerUnit) + 0.5
@@ -65,6 +77,7 @@ const radialPulseShader = /* glsl */ `
       float radius = length(pixelPosition);
       float age = kiteFoamAges[index];
       float ringRadius = 0.1 + age * 0.95;
+      if (abs(radius - ringRadius) >= foamRadialCullWidth) continue;
       float angularCell = floor(
         (atan(pixelPosition.y, pixelPosition.x) + 3.14159265) * 7.0
       );
@@ -76,14 +89,11 @@ const radialPulseShader = /* glsl */ `
         abs(radius - (ringRadius + ringJitter))
       );
       float ageFade = 1.0 - smoothstep(0.34, 0.62, age);
-      float distanceFromKite = length(
-        kiteFoamCenters[index] - kiteFoamCenter
-      );
       float nearKite = 1.0 - smoothstep(0.65, 1.35, distanceFromKite);
       float eventFroth = ringLine
         * ageFade
         * nearKite
-        * kiteFoamStrengths[index];
+        * eventStrength;
       froth = max(froth, eventFroth);
     }
 
@@ -108,6 +118,9 @@ const radialPulseShader = /* glsl */ `
     float ringRadius = age * 2.2;
     float distanceFromRing = radius - ringRadius;
     float ringWidth = 0.34 + age * 0.07;
+    if (
+      abs(distanceFromRing) >= ringWidth * rippleGaussianCutoffWidths
+    ) return vec2(0.0);
     float ageFade = 1.0 - smoothstep(1.65, 2.8, age);
     float originFade = smoothstep(0.0, 0.32, ringRadius);
     float slope = gaussianPulseSlope(distanceFromRing, ringWidth)
@@ -147,11 +160,13 @@ const radialPulseShader = /* glsl */ `
     // Each contact event contributes exactly one expanding ring. Additional
     // slots are activated progressively by actual kite travel on the CPU.
     for (int index = 0; index < ${KITE_RIPPLE_COUNT}; index += 1) {
+      float ringStrength = kiteRingStrengths[index];
+      if (ringStrength <= inactiveEffectThreshold) continue;
       gradient += expandingKiteRing(
         worldPosition,
         kiteRingCenters[index],
         kiteRingAges[index],
-        kiteRingStrengths[index]
+        ringStrength
       );
     }
 

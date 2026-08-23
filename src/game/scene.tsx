@@ -37,6 +37,9 @@ import { useMemo, useRef } from 'react'
 import { AmbientLight, Color, DirectionalLight, Fog } from 'three'
 import { setDiscoColor } from './discoPalette'
 
+const MIN_DEVICE_PIXEL_RATIO = 1
+const MAX_DEVICE_PIXEL_RATIO = 1.5
+
 type GameCanvasProps = {
   bubbleColor: string
   cameraMode: boolean
@@ -82,7 +85,12 @@ export function GameCanvas({
     <Canvas
       className="canvas"
       camera={{ position: [0, 1.6, 0], fov: 70 }}
-      gl={{ antialias: true, alpha: true }}
+      dpr={[MIN_DEVICE_PIXEL_RATIO, MAX_DEVICE_PIXEL_RATIO]}
+      gl={{
+        antialias: true,
+        alpha: true,
+        powerPreference: 'high-performance',
+      }}
     >
       <SceneAtmosphere
         cameraMode={cameraMode}
@@ -123,7 +131,9 @@ export function GameCanvas({
       <KiteSubmersionEffects
         bubbleColor={bubbleColor}
         discoMode={discoMode}
+        horizonColor={horizonColor}
         lightColor={lightColor}
+        waterColor={waterColor}
         windSpeed={windSpeed}
       />
     </Canvas>

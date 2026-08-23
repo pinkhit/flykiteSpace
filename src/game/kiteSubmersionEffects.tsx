@@ -1,20 +1,51 @@
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   BackSide,
+  BoxGeometry,
   Color,
+  DynamicDrawUsage,
   InstancedBufferAttribute,
   InstancedMesh,
   MathUtils,
   Object3D,
   Vector3,
 } from 'three'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { kiteMotion, WATER_LEVEL } from './kiteAnchors'
 import { setDiscoColor } from './discoPalette'
 
 const BUBBLE_COUNT = 80
+const SPLASH_PARTICLE_COUNT = 48
 const BUBBLE_FADE_DURATION = 0.5
 const SURFACE_LIFETIME = 0.6
+const SPLASH_GRAVITY = 0.62
+const SPLASH_LINEAR_DRAG = 0.55
+const SPLASH_MIN_LIFETIME = 1.25
+const SPLASH_LIFETIME_VARIATION = 0.75
+const SPLASH_MIN_HORIZONTAL_SPEED = 0.12
+const SPLASH_HORIZONTAL_SPEED_VARIATION = 0.28
+const SPLASH_MIN_VERTICAL_SPEED = 0.42
+const SPLASH_VERTICAL_SPEED_VARIATION = 0.5
+const SPLASH_MAX_ANGULAR_SPEED = 1.25
+const SPLASH_MIN_SIZE = 0.04
+const SPLASH_SIZE_VARIATION = 0.026
+const SPLASH_SOURCE_VELOCITY_TRANSFER = 0.035
+const SPLASH_MAX_INHERITED_VELOCITY = 0.26
+const SPLASH_SURFACE_OFFSET = 0.035
+const SPLASH_WATER_REENTRY_GRACE = 0.18
+const SPLASH_APPEAR_DURATION = 0.08
+const SPLASH_FADE_DURATION = 0.45
+const SPLASH_MAX_OPACITY = 0.88
+const MAX_EFFECT_FRAME_DELTA = 1 / 20
+const MAX_BUBBLE_EMISSION_BUDGET = 4
+const BUBBLE_SPLASH_PARTICLE_COUNT = 1
+const INITIAL_KITE_SPLASH_PARTICLE_COUNT = 4
+const TRAILING_KITE_SPLASH_PARTICLE_COUNT = 2
+const SPLASH_AMBIENT_BRIGHTNESS = 0.72
+const SPLASH_DIRECTIONAL_LIGHT_CONTRIBUTION = 0.42
+const SPLASH_HORIZON_TINT = 0.08
+const SPLASH_LIGHT_DIRECTION = new Vector3(-0.35, 0.8, -0.48).normalize()
 // Interleaving opposite points makes the silhouette readable before a full
 // emission cycle completes: diamond, inner spars, then a knotted kite tail.
 const KITE_PARTICLE_PATTERN = [
@@ -36,6 +67,25 @@ const KITE_PARTICLE_PATTERN = [
 ] as const
 const hiddenPosition = new Vector3(0, -1000, 0)
 const instanceTransform = new Object3D()
+const splashOrigin = new Vector3()
+
+function createSplashParticleGeometry() {
+  // Three crossed voxel bars create a six-armed 3D asterisk. Keeping every
+  // face square and hard-edged gives the droplet a Minecraft-like silhouette.
+  const bars = [
+    new BoxGeometry(2, 0.32, 0.32),
+    new BoxGeometry(0.32, 2, 0.32),
+    new BoxGeometry(0.32, 0.32, 2),
+  ]
+  const geometry = mergeGeometries(bars, false)
+  bars.forEach((bar) => bar.dispose())
+
+  if (!geometry) {
+    throw new Error('Unable to create splash particle geometry')
+  }
+
+  return geometry
+}
 
 const bubbleVertexShader = /* glsl */ `
   uniform float uWaterLevel;
@@ -141,6 +191,49 @@ const outlineFragmentShader = /* glsl */ `
   }
 `
 
+const splashVertexShader = /* glsl */ `
+  attribute float instanceOpacity;
+  varying float vOpacity;
+  varying vec3 vWorldNormal;
+
+  void main() {
+    vOpacity = instanceOpacity;
+    vec4 instancePosition = instanceMatrix * vec4(position, 1.0);
+    vec4 worldPosition = modelMatrix * instancePosition;
+    vWorldNormal = normalize(
+      mat3(modelMatrix) * mat3(instanceMatrix) * normal
+    );
+    gl_Position = projectionMatrix * viewMatrix * worldPosition;
+  }
+`
+
+const splashFragmentShader = /* glsl */ `
+  uniform vec3 uWaterColor;
+  uniform vec3 uHorizonColor;
+  uniform vec3 uLightDirection;
+  uniform float uAmbientBrightness;
+  uniform float uDirectionalLightContribution;
+  uniform float uHorizonTint;
+  varying float vOpacity;
+  varying vec3 vWorldNormal;
+
+  void main() {
+    if (vOpacity <= 0.001) discard;
+    float blockLight = max(
+      dot(normalize(vWorldNormal), normalize(uLightDirection)),
+      0.0
+    );
+    float lightIntensity = uAmbientBrightness
+      + blockLight * uDirectionalLightContribution;
+    vec3 splashColor = mix(uWaterColor, uHorizonColor, uHorizonTint);
+    vec3 shadedSplash = splashColor * lightIntensity;
+
+    gl_FragColor = vec4(shadedSplash, vOpacity);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }
+`
+
 function smoothstep(value: number) {
   const clamped = MathUtils.clamp(value, 0, 1)
   return clamped * clamped * (3 - 2 * clamped)
@@ -157,35 +250,81 @@ type Bubble = {
   velocity: Vector3
 }
 
+type SplashParticle = {
+  active: boolean
+  age: number
+  angularVelocity: Vector3
+  lifetime: number
+  position: Vector3
+  rotation: Vector3
+  size: number
+  velocity: Vector3
+}
+
 type KiteSubmersionEffectsProps = {
   bubbleColor: string
   discoMode: boolean
+  horizonColor: string
   lightColor: string
+  waterColor: string
   windSpeed: number
 }
 
 export function KiteSubmersionEffects({
   bubbleColor,
   discoMode,
+  horizonColor,
   lightColor,
+  waterColor,
   windSpeed,
 }: KiteSubmersionEffectsProps) {
   const bubbleMeshRef = useRef<InstancedMesh>(null)
   const outlineMeshRef = useRef<InstancedMesh>(null)
+  const splashMeshRef = useRef<InstancedMesh>(null)
   const emissionBudget = useRef(0)
   const nextPatternPoint = useRef(0)
   const nextBubble = useRef(0)
+  const nextSplashParticle = useRef(0)
+  const wasKiteSkimming = useRef(false)
+  const skimMovementDistance = useRef(0)
+  const timeSinceSkimSplash = useRef(Number.POSITIVE_INFINITY)
+  const lastSkimPosition = useRef(new Vector3())
   const opacityValues = useMemo(() => new Float32Array(BUBBLE_COUNT), [])
+  const splashOpacityValues = useMemo(
+    () => new Float32Array(SPLASH_PARTICLE_COUNT),
+    []
+  )
+  const splashGeometry = useMemo(() => {
+    const geometry = createSplashParticleGeometry()
+    geometry.setAttribute(
+      'instanceOpacity',
+      new InstancedBufferAttribute(splashOpacityValues, 1)
+    )
+    return geometry
+  }, [splashOpacityValues])
   const bubbleUniforms = useMemo(
     () => ({
-      uBubbleColor: { value: new Color(bubbleColor) },
-      uLightColor: { value: new Color(lightColor) },
+      uBubbleColor: { value: new Color() },
+      uLightColor: { value: new Color() },
       uWaterLevel: { value: WATER_LEVEL },
     }),
-    [bubbleColor, lightColor]
+    []
   )
   const outlineUniforms = useMemo(
     () => ({ uWaterLevel: { value: WATER_LEVEL } }),
+    []
+  )
+  const splashUniforms = useMemo(
+    () => ({
+      uWaterColor: { value: new Color() },
+      uHorizonColor: { value: new Color() },
+      uLightDirection: { value: SPLASH_LIGHT_DIRECTION.clone() },
+      uAmbientBrightness: { value: SPLASH_AMBIENT_BRIGHTNESS },
+      uDirectionalLightContribution: {
+        value: SPLASH_DIRECTIONAL_LIGHT_CONTRIBUTION,
+      },
+      uHorizonTint: { value: SPLASH_HORIZON_TINT },
+    }),
     []
   )
   const bubbleState = useRef<Bubble[]>(
@@ -200,15 +339,132 @@ export function KiteSubmersionEffects({
       velocity: new Vector3(),
     }))
   )
+  const splashState = useRef<SplashParticle[]>(
+    Array.from({ length: SPLASH_PARTICLE_COUNT }, () => ({
+      active: false,
+      age: 0,
+      angularVelocity: new Vector3(),
+      lifetime: 0,
+      position: hiddenPosition.clone(),
+      rotation: new Vector3(),
+      size: 0,
+      velocity: new Vector3(),
+    }))
+  )
 
-  useFrame((state, delta) => {
+  const emitSplashBurst = useCallback(
+    (
+      origin: Vector3,
+      count: number,
+      strength: number,
+      sourceVelocity: Vector3
+    ) => {
+      for (let burstIndex = 0; burstIndex < count; burstIndex += 1) {
+        const particle =
+          splashState.current[nextSplashParticle.current]
+        nextSplashParticle.current =
+          (nextSplashParticle.current + 1) % SPLASH_PARTICLE_COUNT
+        const angle = Math.random() * Math.PI * 2
+        const horizontalSpeed =
+          (SPLASH_MIN_HORIZONTAL_SPEED +
+            Math.random() * SPLASH_HORIZONTAL_SPEED_VARIATION) *
+          strength
+
+        particle.active = true
+        particle.age = 0
+        particle.lifetime =
+          SPLASH_MIN_LIFETIME +
+          Math.random() * SPLASH_LIFETIME_VARIATION
+        particle.position.copy(origin)
+        particle.position.y = WATER_LEVEL + SPLASH_SURFACE_OFFSET
+        particle.rotation.set(
+          Math.random() * Math.PI,
+          Math.random() * Math.PI,
+          Math.random() * Math.PI
+        )
+        particle.angularVelocity.set(
+          (Math.random() * 2 - 1) * SPLASH_MAX_ANGULAR_SPEED,
+          (Math.random() * 2 - 1) * SPLASH_MAX_ANGULAR_SPEED,
+          (Math.random() * 2 - 1) * SPLASH_MAX_ANGULAR_SPEED
+        )
+        particle.size =
+          (SPLASH_MIN_SIZE + Math.random() * SPLASH_SIZE_VARIATION) *
+          MathUtils.lerp(0.82, 1.2, strength)
+        particle.velocity.set(
+          Math.cos(angle) * horizontalSpeed +
+            MathUtils.clamp(
+              sourceVelocity.x * SPLASH_SOURCE_VELOCITY_TRANSFER,
+              -SPLASH_MAX_INHERITED_VELOCITY,
+              SPLASH_MAX_INHERITED_VELOCITY
+            ),
+          (SPLASH_MIN_VERTICAL_SPEED +
+            Math.random() * SPLASH_VERTICAL_SPEED_VARIATION) *
+            strength,
+          Math.sin(angle) * horizontalSpeed +
+            MathUtils.clamp(
+              sourceVelocity.z * SPLASH_SOURCE_VELOCITY_TRANSFER,
+              -SPLASH_MAX_INHERITED_VELOCITY,
+              SPLASH_MAX_INHERITED_VELOCITY
+            )
+        )
+      }
+    },
+    []
+  )
+
+  useEffect(() => () => splashGeometry.dispose(), [splashGeometry])
+
+  useEffect(() => {
+    if (discoMode) return
+    bubbleUniforms.uBubbleColor.value.set(bubbleColor)
+    bubbleUniforms.uLightColor.value.set(lightColor)
+    splashUniforms.uWaterColor.value.set(waterColor)
+    splashUniforms.uHorizonColor.value.set(horizonColor)
+  }, [
+    bubbleColor,
+    bubbleUniforms,
+    discoMode,
+    horizonColor,
+    lightColor,
+    splashUniforms,
+    waterColor,
+  ])
+
+  useEffect(() => {
     const mesh = bubbleMeshRef.current
     const outlineMesh = outlineMeshRef.current
-    if (!mesh || !outlineMesh) return
+    const splashMesh = splashMeshRef.current
+    if (!mesh || !outlineMesh || !splashMesh) return
+
+    mesh.instanceMatrix.setUsage(DynamicDrawUsage)
+    outlineMesh.instanceMatrix.setUsage(DynamicDrawUsage)
+    splashMesh.instanceMatrix.setUsage(DynamicDrawUsage)
     const opacityAttribute = mesh.geometry.getAttribute(
       'instanceOpacity'
     ) as InstancedBufferAttribute
     const outlineOpacityAttribute = outlineMesh.geometry.getAttribute(
+      'instanceOpacity'
+    ) as InstancedBufferAttribute
+    const splashOpacityAttribute = splashMesh.geometry.getAttribute(
+      'instanceOpacity'
+    ) as InstancedBufferAttribute
+    opacityAttribute.setUsage(DynamicDrawUsage)
+    outlineOpacityAttribute.setUsage(DynamicDrawUsage)
+    splashOpacityAttribute.setUsage(DynamicDrawUsage)
+  }, [])
+
+  useFrame((state, delta) => {
+    const mesh = bubbleMeshRef.current
+    const outlineMesh = outlineMeshRef.current
+    const splashMesh = splashMeshRef.current
+    if (!mesh || !outlineMesh || !splashMesh) return
+    const opacityAttribute = mesh.geometry.getAttribute(
+      'instanceOpacity'
+    ) as InstancedBufferAttribute
+    const outlineOpacityAttribute = outlineMesh.geometry.getAttribute(
+      'instanceOpacity'
+    ) as InstancedBufferAttribute
+    const splashOpacityAttribute = splashMesh.geometry.getAttribute(
       'instanceOpacity'
     ) as InstancedBufferAttribute
 
@@ -218,6 +474,7 @@ export function KiteSubmersionEffects({
     )
     const bubbleStormBoost =
       Math.exp(Math.max(0, windSpeed - 5) * 0.18) - 1
+    const effectDelta = Math.min(delta, MAX_EFFECT_FRAME_DELTA)
 
     if (discoMode) {
       setDiscoColor(
@@ -234,9 +491,20 @@ export function KiteSubmersionEffects({
         1,
         0.68
       )
-    } else {
-      bubbleUniforms.uBubbleColor.value.set(bubbleColor)
-      bubbleUniforms.uLightColor.value.set(lightColor)
+      setDiscoColor(
+        splashUniforms.uWaterColor.value,
+        state.clock.elapsedTime,
+        0.66,
+        0.88,
+        0.43
+      )
+      setDiscoColor(
+        splashUniforms.uHorizonColor.value,
+        state.clock.elapsedTime,
+        0.12,
+        0.92,
+        0.7
+      )
     }
 
     if (kiteMotion.submersion > 0.01) {
@@ -246,7 +514,10 @@ export function KiteSubmersionEffects({
         kiteMotion.submersion * 6 +
         movementBubbles +
         bubbleStormBoost * 10
-      emissionBudget.current += delta * emissionRate
+      emissionBudget.current = Math.min(
+        MAX_BUBBLE_EMISSION_BUDGET,
+        emissionBudget.current + effectDelta * emissionRate
+      )
     } else {
       emissionBudget.current = Math.min(emissionBudget.current, 0.35)
       nextPatternPoint.current = 0
@@ -308,11 +579,12 @@ export function KiteSubmersionEffects({
         SURFACE_LIFETIME
     }
 
+    let renderedBubbleCount = 0
     for (let index = 0; index < BUBBLE_COUNT; index += 1) {
       const bubble = bubbleState.current[index]
 
       if (bubble.active) {
-        bubble.age += delta
+        bubble.age += effectDelta
 
         if (bubble.surfaceAge < 0) {
           const wobble =
@@ -322,20 +594,32 @@ export function KiteSubmersionEffects({
                 bubble.phase
             ) *
             (0.035 + bubbleStormBoost * 0.012)
-          bubble.position.x += (bubble.velocity.x + wobble) * delta
-          bubble.position.y += bubble.velocity.y * delta
+          bubble.position.x += (bubble.velocity.x + wobble) * effectDelta
+          bubble.position.y += bubble.velocity.y * effectDelta
           bubble.position.z +=
-            (bubble.velocity.z + Math.cos(bubble.phase) * 0.025) * delta
+            (bubble.velocity.z + Math.cos(bubble.phase) * 0.025) *
+            effectDelta
 
           if (bubble.position.y >= WATER_LEVEL + 0.015) {
             bubble.position.y = WATER_LEVEL + 0.015
             bubble.surfaceAge = 0
             bubble.lifetime = bubble.age + SURFACE_LIFETIME
+            const splashStrength = MathUtils.clamp(
+              bubble.radius / 0.055,
+              0.62,
+              1.05
+            )
+            emitSplashBurst(
+              bubble.position,
+              BUBBLE_SPLASH_PARTICLE_COUNT,
+              splashStrength,
+              bubble.velocity
+            )
           }
         } else {
-          bubble.surfaceAge += delta
-          bubble.position.x += bubble.velocity.x * delta * 0.5
-          bubble.position.z += bubble.velocity.z * delta * 0.5
+          bubble.surfaceAge += effectDelta
+          bubble.position.x += bubble.velocity.x * effectDelta * 0.5
+          bubble.position.z += bubble.velocity.z * effectDelta * 0.5
         }
 
         if (bubble.age >= bubble.lifetime) {
@@ -343,33 +627,160 @@ export function KiteSubmersionEffects({
         }
       }
 
-      instanceTransform.position.copy(
-        bubble.active ? bubble.position : hiddenPosition
-      )
+      if (!bubble.active) continue
+
+      instanceTransform.position.copy(bubble.position)
+      instanceTransform.rotation.set(0, 0, 0)
       const surfaceGrowth =
         bubble.surfaceAge >= 0 ? 1 + bubble.surfaceAge : 1
       const depthBelowSurface = Math.max(0, WATER_LEVEL - bubble.position.y)
       const surfaceClarity = smoothstep(1 - depthBelowSurface / 2.2)
       const pressureGrowth = MathUtils.lerp(0.78, 1, surfaceClarity)
-      const scale = bubble.active
-        ? bubble.radius * surfaceGrowth * pressureGrowth
-        : 0
+      const scale = bubble.radius * surfaceGrowth * pressureGrowth
       const remainingLifetime = bubble.lifetime - bubble.age
-      const opacity = bubble.active
-        ? smoothstep(remainingLifetime / BUBBLE_FADE_DURATION) * 0.66
-        : 0
+      const opacity =
+        smoothstep(remainingLifetime / BUBBLE_FADE_DURATION) * 0.66
       instanceTransform.scale.setScalar(scale)
       instanceTransform.updateMatrix()
-      mesh.setMatrixAt(index, instanceTransform.matrix)
-      outlineMesh.setMatrixAt(index, instanceTransform.matrix)
-      opacityAttribute.setX(index, opacity)
-      outlineOpacityAttribute.setX(index, opacity)
+      mesh.setMatrixAt(renderedBubbleCount, instanceTransform.matrix)
+      outlineMesh.setMatrixAt(
+        renderedBubbleCount,
+        instanceTransform.matrix
+      )
+      opacityAttribute.setX(renderedBubbleCount, opacity)
+      outlineOpacityAttribute.setX(renderedBubbleCount, opacity)
+      renderedBubbleCount += 1
     }
+    mesh.count = renderedBubbleCount
+    outlineMesh.count = renderedBubbleCount
 
-    mesh.instanceMatrix.needsUpdate = true
-    outlineMesh.instanceMatrix.needsUpdate = true
-    opacityAttribute.needsUpdate = true
-    outlineOpacityAttribute.needsUpdate = true
+    const foamSurfaceBand =
+      MathUtils.smoothstep(kiteMotion.submersion, 0.015, 0.12) *
+      (1 - MathUtils.smoothstep(kiteMotion.submersion, 0.72, 0.96))
+    const skimMotion = MathUtils.smoothstep(planarSpeed, 0.35, 1.6)
+    const skimStrength = foamSurfaceBand * skimMotion
+    const isKiteSkimming = skimStrength > 0.025
+    timeSinceSkimSplash.current += effectDelta
+
+    if (isKiteSkimming) {
+      splashOrigin.set(
+        kiteMotion.position.x,
+        WATER_LEVEL + 0.035,
+        kiteMotion.position.z
+      )
+
+      if (!wasKiteSkimming.current) {
+        lastSkimPosition.current.copy(splashOrigin)
+        skimMovementDistance.current = 0
+        emitSplashBurst(
+          splashOrigin,
+          INITIAL_KITE_SPLASH_PARTICLE_COUNT,
+          MathUtils.lerp(0.82, 1.18, skimStrength),
+          kiteMotion.velocity
+        )
+        timeSinceSkimSplash.current = 0
+      } else {
+        const frameTravel = Math.hypot(
+          splashOrigin.x - lastSkimPosition.current.x,
+          splashOrigin.z - lastSkimPosition.current.z
+        )
+        lastSkimPosition.current.copy(splashOrigin)
+        skimMovementDistance.current += Math.min(frameTravel, 0.35)
+        const emissionDistance = MathUtils.lerp(
+          0.48,
+          0.26,
+          MathUtils.clamp(planarSpeed / 7, 0, 1)
+        )
+
+        if (
+          skimMovementDistance.current >= emissionDistance &&
+          timeSinceSkimSplash.current >= 0.12
+        ) {
+          skimMovementDistance.current -= emissionDistance
+          emitSplashBurst(
+            splashOrigin,
+            TRAILING_KITE_SPLASH_PARTICLE_COUNT,
+            MathUtils.lerp(0.76, 1.08, skimStrength),
+            kiteMotion.velocity
+          )
+          timeSinceSkimSplash.current = 0
+        }
+      }
+    } else {
+      skimMovementDistance.current = 0
+      lastSkimPosition.current.set(
+        kiteMotion.position.x,
+        WATER_LEVEL + 0.035,
+        kiteMotion.position.z
+      )
+    }
+    wasKiteSkimming.current = isKiteSkimming
+
+    let renderedSplashCount = 0
+    for (let index = 0; index < SPLASH_PARTICLE_COUNT; index += 1) {
+      const particle = splashState.current[index]
+
+      if (particle.active) {
+        particle.age += effectDelta
+        const drag = Math.exp(-SPLASH_LINEAR_DRAG * effectDelta)
+        particle.velocity.multiplyScalar(drag)
+        particle.velocity.y -= SPLASH_GRAVITY * effectDelta
+        particle.position.addScaledVector(particle.velocity, effectDelta)
+        particle.rotation.addScaledVector(
+          particle.angularVelocity,
+          effectDelta
+        )
+
+        if (
+          particle.age >= particle.lifetime ||
+          (particle.age > SPLASH_WATER_REENTRY_GRACE &&
+            particle.position.y <= WATER_LEVEL)
+        ) {
+          particle.active = false
+        }
+      }
+
+      if (!particle.active) continue
+
+      instanceTransform.position.copy(particle.position)
+      instanceTransform.rotation.set(
+        particle.rotation.x,
+        particle.rotation.y,
+        particle.rotation.z
+      )
+      const remainingLifetime = particle.lifetime - particle.age
+      const appear = MathUtils.smoothstep(
+        particle.age,
+        0,
+        SPLASH_APPEAR_DURATION
+      )
+      const disappear = MathUtils.smoothstep(
+        remainingLifetime,
+        0,
+        SPLASH_FADE_DURATION
+      )
+      const particleScale = particle.size * appear * disappear
+      instanceTransform.scale.setScalar(particleScale)
+      instanceTransform.updateMatrix()
+      splashMesh.setMatrixAt(renderedSplashCount, instanceTransform.matrix)
+      splashOpacityAttribute.setX(
+        renderedSplashCount,
+        disappear * SPLASH_MAX_OPACITY
+      )
+      renderedSplashCount += 1
+    }
+    splashMesh.count = renderedSplashCount
+
+    if (renderedBubbleCount > 0) {
+      mesh.instanceMatrix.needsUpdate = true
+      outlineMesh.instanceMatrix.needsUpdate = true
+      opacityAttribute.needsUpdate = true
+      outlineOpacityAttribute.needsUpdate = true
+    }
+    if (renderedSplashCount > 0) {
+      splashMesh.instanceMatrix.needsUpdate = true
+      splashOpacityAttribute.needsUpdate = true
+    }
   })
 
   return (
@@ -418,6 +829,23 @@ export function KiteSubmersionEffects({
           transparent
           uniforms={bubbleUniforms}
           vertexShader={bubbleVertexShader}
+        />
+      </instancedMesh>
+
+      <instancedMesh
+        ref={splashMeshRef}
+        args={[undefined, undefined, SPLASH_PARTICLE_COUNT]}
+        frustumCulled={false}
+        renderOrder={910}
+      >
+        <primitive attach="geometry" object={splashGeometry} />
+        <shaderMaterial
+          depthWrite={false}
+          fragmentShader={splashFragmentShader}
+          toneMapped={false}
+          transparent
+          uniforms={splashUniforms}
+          vertexShader={splashVertexShader}
         />
       </instancedMesh>
     </>
