@@ -4,26 +4,27 @@ A kite flying browser experience.
 
 ## Highlights
 
-- Physics-inspired kite motion responds to player input, wind, lift, and gusts.
+- Physics based kite motion responds to player input, wind, lift, and gusts.
 - Custom sky and water shaders provide moving clouds, planar reflections, ripples, wakes, and foam.
-- Water contact switches to underwater kite and string effects, then emits bubbles and low-gravity voxel splashes.
-- Lighting presets and live controls make it easy to move between natural and highly stylized color palettes.
+- Kite interacts with world objects, supported by particle emission VFXs.
+- Lighting presets and live controls to move between natural or stylized color palettes.
 - Supports pointer and touch controls, device orientation, and optional rear-camera passthrough.
 
 ## Graphics and gameplay
 
 ### Kite
 
-- The kite follows the camera while wind and player movement control its position, roll, and pitch.
+- The kite tracks the camera while wind and player inputs control its position, roll, and pitch.
 - Motion uses frame-rate-independent smoothing for consistent behavior across devices.
 - The string is generated at runtime with sag, sideways movement, and vibration.
+- Kite contact drives the water wake, ripples, pixel foam, bubbles, and cross-shaped voxel splash particles.
 
 ### Environment and VFX
 
 - Procedural cloud textures are generated on the CPU and animated in a custom sky shader.
 - The water uses a fixed planar reflection target and computes most surface detail in the fragment shader.
-- Kite contact drives the water wake, ripples, pixel foam, bubbles, and voxel splash particles.
-- Particle systems use instancing and fixed-size pools to avoid continuous allocation during gameplay.
+- Interactive animated low-poly birds orbit in 360° flight bands, with speed driven by wind strength.
+- Particle system based VFX uses instancing and fixed-size pools to avoid continuous allocation during gameplay.
 
 ## Mobile performance
 
@@ -55,6 +56,10 @@ src/
 └── main.tsx      # Application entry point
 ```
 
+## Asset credits
+
+- [Low Poly Bird (Animated)](https://sketchfab.com/3d-models/low-poly-bird-animated-82ada91f0ac64ab595fbc3dc994a3590) by Charlie Tinley ([@Tnkii](https://sketchfab.com/Tnkii)), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
 ## Running locally
 
 ```bash
@@ -75,5 +80,7 @@ Camera access and device orientation require browser permission and a secure con
 ## Controls
 
 - Drag across the scene to look around and steer the kite.
+- On desktop, press W to lengthen the string and S to shorten it.
+- Use the Birds toggle to hide the flock and pause its simulation.
 - Use the HUD to tune the renderer and wind response at runtime.
 - Enable Camera mode for rear-camera passthrough; enable Motion to use device orientation when supported.

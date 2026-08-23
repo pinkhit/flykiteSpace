@@ -1,6 +1,10 @@
 import { Vector3 } from 'three'
 
 export const WATER_LEVEL = -0.12
+export const MIN_KITE_STRING_LENGTH = 3
+export const MAX_KITE_STRING_LENGTH = 50
+export const KITE_STRING_LENGTH_STEP = 0.5
+export const DEFAULT_KITE_STRING_LENGTH = 8
 export const kiteStringAnchor = new Vector3(0, 2, -8)
 export const handStringAnchor = new Vector3(0.35, -0.35, -1.2)
 

@@ -2,7 +2,6 @@ import { useFrame } from '@react-three/fiber'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   BackSide,
-  BoxGeometry,
   Color,
   DynamicDrawUsage,
   InstancedBufferAttribute,
@@ -11,9 +10,9 @@ import {
   Object3D,
   Vector3,
 } from 'three'
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { kiteMotion, WATER_LEVEL } from './kiteAnchors'
 import { setDiscoColor } from './discoPalette'
+import { createVoxelCrossGeometry } from './voxelParticleGeometry'
 
 const BUBBLE_COUNT = 80
 const SPLASH_PARTICLE_COUNT = 48
@@ -68,24 +67,6 @@ const KITE_PARTICLE_PATTERN = [
 const hiddenPosition = new Vector3(0, -1000, 0)
 const instanceTransform = new Object3D()
 const splashOrigin = new Vector3()
-
-function createSplashParticleGeometry() {
-  // Three crossed voxel bars create a six-armed 3D asterisk. Keeping every
-  // face square and hard-edged gives the droplet a Minecraft-like silhouette.
-  const bars = [
-    new BoxGeometry(2, 0.32, 0.32),
-    new BoxGeometry(0.32, 2, 0.32),
-    new BoxGeometry(0.32, 0.32, 2),
-  ]
-  const geometry = mergeGeometries(bars, false)
-  bars.forEach((bar) => bar.dispose())
-
-  if (!geometry) {
-    throw new Error('Unable to create splash particle geometry')
-  }
-
-  return geometry
-}
 
 const bubbleVertexShader = /* glsl */ `
   uniform float uWaterLevel;
@@ -280,7 +261,7 @@ export function KiteSubmersionEffects({
 }: KiteSubmersionEffectsProps) {
   const bubbleMeshRef = useRef<InstancedMesh>(null)
   const outlineMeshRef = useRef<InstancedMesh>(null)
-  const splashMeshRef = useRef<InstancedMesh>(null)
+  const splashCrossMeshRef = useRef<InstancedMesh>(null)
   const emissionBudget = useRef(0)
   const nextPatternPoint = useRef(0)
   const nextBubble = useRef(0)
@@ -290,18 +271,18 @@ export function KiteSubmersionEffects({
   const timeSinceSkimSplash = useRef(Number.POSITIVE_INFINITY)
   const lastSkimPosition = useRef(new Vector3())
   const opacityValues = useMemo(() => new Float32Array(BUBBLE_COUNT), [])
-  const splashOpacityValues = useMemo(
+  const splashCrossOpacityValues = useMemo(
     () => new Float32Array(SPLASH_PARTICLE_COUNT),
     []
   )
-  const splashGeometry = useMemo(() => {
-    const geometry = createSplashParticleGeometry()
+  const splashCrossGeometry = useMemo(() => {
+    const geometry = createVoxelCrossGeometry()
     geometry.setAttribute(
       'instanceOpacity',
-      new InstancedBufferAttribute(splashOpacityValues, 1)
+      new InstancedBufferAttribute(splashCrossOpacityValues, 1)
     )
     return geometry
-  }, [splashOpacityValues])
+  }, [splashCrossOpacityValues])
   const bubbleUniforms = useMemo(
     () => ({
       uBubbleColor: { value: new Color() },
@@ -412,7 +393,10 @@ export function KiteSubmersionEffects({
     []
   )
 
-  useEffect(() => () => splashGeometry.dispose(), [splashGeometry])
+  useEffect(
+    () => () => splashCrossGeometry.dispose(),
+    [splashCrossGeometry]
+  )
 
   useEffect(() => {
     if (discoMode) return
@@ -433,38 +417,38 @@ export function KiteSubmersionEffects({
   useEffect(() => {
     const mesh = bubbleMeshRef.current
     const outlineMesh = outlineMeshRef.current
-    const splashMesh = splashMeshRef.current
-    if (!mesh || !outlineMesh || !splashMesh) return
+    const splashCrossMesh = splashCrossMeshRef.current
+    if (!mesh || !outlineMesh || !splashCrossMesh) return
 
     mesh.instanceMatrix.setUsage(DynamicDrawUsage)
     outlineMesh.instanceMatrix.setUsage(DynamicDrawUsage)
-    splashMesh.instanceMatrix.setUsage(DynamicDrawUsage)
+    splashCrossMesh.instanceMatrix.setUsage(DynamicDrawUsage)
     const opacityAttribute = mesh.geometry.getAttribute(
       'instanceOpacity'
     ) as InstancedBufferAttribute
     const outlineOpacityAttribute = outlineMesh.geometry.getAttribute(
       'instanceOpacity'
     ) as InstancedBufferAttribute
-    const splashOpacityAttribute = splashMesh.geometry.getAttribute(
+    const splashCrossOpacityAttribute = splashCrossMesh.geometry.getAttribute(
       'instanceOpacity'
     ) as InstancedBufferAttribute
     opacityAttribute.setUsage(DynamicDrawUsage)
     outlineOpacityAttribute.setUsage(DynamicDrawUsage)
-    splashOpacityAttribute.setUsage(DynamicDrawUsage)
+    splashCrossOpacityAttribute.setUsage(DynamicDrawUsage)
   }, [])
 
   useFrame((state, delta) => {
     const mesh = bubbleMeshRef.current
     const outlineMesh = outlineMeshRef.current
-    const splashMesh = splashMeshRef.current
-    if (!mesh || !outlineMesh || !splashMesh) return
+    const splashCrossMesh = splashCrossMeshRef.current
+    if (!mesh || !outlineMesh || !splashCrossMesh) return
     const opacityAttribute = mesh.geometry.getAttribute(
       'instanceOpacity'
     ) as InstancedBufferAttribute
     const outlineOpacityAttribute = outlineMesh.geometry.getAttribute(
       'instanceOpacity'
     ) as InstancedBufferAttribute
-    const splashOpacityAttribute = splashMesh.geometry.getAttribute(
+    const splashCrossOpacityAttribute = splashCrossMesh.geometry.getAttribute(
       'instanceOpacity'
     ) as InstancedBufferAttribute
 
@@ -716,7 +700,7 @@ export function KiteSubmersionEffects({
     }
     wasKiteSkimming.current = isKiteSkimming
 
-    let renderedSplashCount = 0
+    let renderedSplashCrossCount = 0
     for (let index = 0; index < SPLASH_PARTICLE_COUNT; index += 1) {
       const particle = splashState.current[index]
 
@@ -762,14 +746,17 @@ export function KiteSubmersionEffects({
       const particleScale = particle.size * appear * disappear
       instanceTransform.scale.setScalar(particleScale)
       instanceTransform.updateMatrix()
-      splashMesh.setMatrixAt(renderedSplashCount, instanceTransform.matrix)
-      splashOpacityAttribute.setX(
-        renderedSplashCount,
+      splashCrossMesh.setMatrixAt(
+        renderedSplashCrossCount,
+        instanceTransform.matrix
+      )
+      splashCrossOpacityAttribute.setX(
+        renderedSplashCrossCount,
         disappear * SPLASH_MAX_OPACITY
       )
-      renderedSplashCount += 1
+      renderedSplashCrossCount += 1
     }
-    splashMesh.count = renderedSplashCount
+    splashCrossMesh.count = renderedSplashCrossCount
 
     if (renderedBubbleCount > 0) {
       mesh.instanceMatrix.needsUpdate = true
@@ -777,9 +764,9 @@ export function KiteSubmersionEffects({
       opacityAttribute.needsUpdate = true
       outlineOpacityAttribute.needsUpdate = true
     }
-    if (renderedSplashCount > 0) {
-      splashMesh.instanceMatrix.needsUpdate = true
-      splashOpacityAttribute.needsUpdate = true
+    if (renderedSplashCrossCount > 0) {
+      splashCrossMesh.instanceMatrix.needsUpdate = true
+      splashCrossOpacityAttribute.needsUpdate = true
     }
   })
 
@@ -833,12 +820,12 @@ export function KiteSubmersionEffects({
       </instancedMesh>
 
       <instancedMesh
-        ref={splashMeshRef}
+        ref={splashCrossMeshRef}
         args={[undefined, undefined, SPLASH_PARTICLE_COUNT]}
         frustumCulled={false}
         renderOrder={910}
       >
-        <primitive attach="geometry" object={splashGeometry} />
+        <primitive attach="geometry" object={splashCrossGeometry} />
         <shaderMaterial
           depthWrite={false}
           fragmentShader={splashFragmentShader}

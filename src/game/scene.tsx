@@ -32,6 +32,7 @@ import { Kite } from './kite'
 import { KiteString } from './string'
 import { Hand } from './arm'
 import { KiteSubmersionEffects } from './kiteSubmersionEffects'
+import { Birds } from './birds'
 import type { OrientationState } from '../hooks/useDeviceGyro'
 import { useMemo, useRef } from 'react'
 import { AmbientLight, Color, DirectionalLight, Fog } from 'three'
@@ -54,6 +55,7 @@ type GameCanvasProps = {
   pulseSpeed: number
   pulseWidth: number
   reflectionClarity: number
+  showBirds: boolean
   showHands: boolean
   skyColor: string
   skyBrightness: number
@@ -75,6 +77,7 @@ export function GameCanvas({
   pulseSpeed,
   pulseWidth,
   reflectionClarity,
+  showBirds,
   showHands,
   skyColor,
   skyBrightness,
@@ -124,6 +127,12 @@ export function GameCanvas({
         discoMode={discoMode}
         underwaterEffect={!cameraMode}
         stringLength={stringLength}
+        windSpeed={windSpeed}
+      />
+      <Birds
+        discoMode={discoMode}
+        lightColor={lightColor}
+        visible={showBirds}
         windSpeed={windSpeed}
       />
       <Hand visible={showHands} />

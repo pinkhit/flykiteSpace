@@ -298,6 +298,7 @@ button {
 }
 
 .camera-toggle,
+.birds-toggle,
 .crosshair-toggle,
 .disco-toggle,
 .motion-toggle,
@@ -335,27 +336,32 @@ button {
   order: 3;
 }
 
-.hands-toggle {
+.birds-toggle {
   order: 4;
 }
 
-.crosshair-toggle {
+.hands-toggle {
   order: 5;
 }
 
-.camera-toggle {
+.crosshair-toggle {
   order: 6;
 }
 
-.motion-toggle {
-  order: 8;
-}
-
-.disco-toggle {
+.camera-toggle {
   order: 7;
 }
 
+.disco-toggle {
+  order: 8;
+}
+
+.motion-toggle {
+  order: 9;
+}
+
 .camera-toggle:active,
+.birds-toggle:active,
 .crosshair-toggle:active,
 .disco-toggle:active,
 .motion-toggle:active,
@@ -610,6 +616,7 @@ button {
   }
 
   .camera-toggle,
+  .birds-toggle,
   .crosshair-toggle,
   .disco-toggle,
   .motion-toggle,

@@ -11,7 +11,7 @@
 //   )
 // }
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { GameCanvas } from './game/scene'
 import { Hud } from './components/HUD'
 import { CameraBackground } from './components/passThroughCam'
@@ -21,15 +21,37 @@ import {
   LIGHTING_PRESETS,
   type LightingPresetId,
 } from './game/lightingPresets'
+import {
+  DEFAULT_KITE_STRING_LENGTH,
+  KITE_STRING_LENGTH_STEP,
+  MAX_KITE_STRING_LENGTH,
+  MIN_KITE_STRING_LENGTH,
+} from './game/kiteAnchors'
 import './index.css'
+
+function isTextEntryTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false
+
+  return (
+    target.isContentEditable ||
+    target.matches(
+      'input:not([type]), input[type="text"], input[type="number"], ' +
+        'input[type="search"], input[type="email"], input[type="url"], ' +
+        'input[type="password"], textarea, select'
+    )
+  )
+}
 
 export default function App() {
   const [cameraMode, setCameraMode] = useState(false)
   const [discoMode, setDiscoMode] = useState(false)
   const [hudCollapsed, setHudCollapsed] = useState(false)
+  const [showBirds, setShowBirds] = useState(true)
   const [showCrosshair, setShowCrosshair] = useState(true)
   const [showHands, setShowHands] = useState(false)
-  const [stringLength, setStringLength] = useState(8)
+  const [stringLength, setStringLength] = useState(
+    DEFAULT_KITE_STRING_LENGTH
+  )
   const [pulseSpeed, setPulseSpeed] = useState(3.8)
   const [pulseWidth, setPulseWidth] = useState(2.6)
   const [waterColor, setWaterColor] = useState(DUSK_GLOW_LIGHTING.waterColor)
@@ -54,6 +76,38 @@ export default function App() {
     DUSK_GLOW_LIGHTING.skyBrightness
   )
   const orientation = useDeviceOrientation(cameraMode)
+
+  useEffect(() => {
+    function handleStringLengthKey(event: KeyboardEvent) {
+      if (
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        isTextEntryTarget(event.target)
+      ) {
+        return
+      }
+
+      const adjustment =
+        event.code === 'KeyW'
+          ? KITE_STRING_LENGTH_STEP
+          : event.code === 'KeyS'
+            ? -KITE_STRING_LENGTH_STEP
+            : 0
+      if (adjustment === 0) return
+
+      event.preventDefault()
+      setStringLength((currentLength) =>
+        Math.min(
+          MAX_KITE_STRING_LENGTH,
+          Math.max(MIN_KITE_STRING_LENGTH, currentLength + adjustment)
+        )
+      )
+    }
+
+    window.addEventListener('keydown', handleStringLengthKey)
+    return () => window.removeEventListener('keydown', handleStringLengthKey)
+  }, [])
 
   const activeLightingPreset =
     LIGHTING_PRESETS.find(({ values }) =>
@@ -124,6 +178,7 @@ export default function App() {
         pulseSpeed={pulseSpeed}
         pulseWidth={pulseWidth}
         reflectionClarity={reflectionClarity}
+        showBirds={showBirds}
         showHands={showHands}
         skyColor={skyColor}
         skyBrightness={skyBrightness}
@@ -144,6 +199,7 @@ export default function App() {
         lightingPreset={activeLightingPreset}
         motionPermission={orientation.permission}
         collapsed={hudCollapsed}
+        showBirds={showBirds}
         showCrosshair={showCrosshair}
         showHands={showHands}
         onToggleCameraMode={handleToggleCameraMode}
@@ -162,6 +218,7 @@ export default function App() {
         onSkyColorChange={setSkyColor}
         onSkyBrightnessChange={setSkyBrightness}
         onStringLengthChange={setStringLength}
+        onToggleBirds={() => setShowBirds((value) => !value)}
         onToggleCollapsed={() => setHudCollapsed((value) => !value)}
         onToggleCrosshair={() => setShowCrosshair((value) => !value)}
         onToggleHands={() => setShowHands((value) => !value)}

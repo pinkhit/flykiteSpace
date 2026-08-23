@@ -3,6 +3,11 @@ import {
   LIGHTING_PRESETS,
   type LightingPresetId,
 } from '../game/lightingPresets'
+import {
+  KITE_STRING_LENGTH_STEP,
+  MAX_KITE_STRING_LENGTH,
+  MIN_KITE_STRING_LENGTH,
+} from '../game/kiteAnchors'
 
 type HudProps = {
   bubbleColor: string
@@ -34,6 +39,7 @@ type HudProps = {
   onSkyColorChange: (value: string) => void
   onSkyBrightnessChange: (value: number) => void
   onStringLengthChange: (value: number) => void
+  onToggleBirds: () => void
   onToggleCollapsed: () => void
   onToggleCrosshair: () => void
   onToggleHands: () => void
@@ -41,6 +47,7 @@ type HudProps = {
   pulseSpeed: number
   pulseWidth: number
   reflectionClarity: number
+  showBirds: boolean
   showCrosshair: boolean
   showHands: boolean
   skyColor: string
@@ -79,6 +86,7 @@ export function Hud({
   onSkyColorChange,
   onSkyBrightnessChange,
   onStringLengthChange,
+  onToggleBirds,
   onToggleCollapsed,
   onToggleCrosshair,
   onToggleHands,
@@ -86,6 +94,7 @@ export function Hud({
   pulseSpeed,
   pulseWidth,
   reflectionClarity,
+  showBirds,
   showCrosshair,
   showHands,
   skyColor,
@@ -123,6 +132,17 @@ export function Hud({
         >
           HUD: {collapsed ? 'Show' : 'Hide'}
         </button>
+
+        {!collapsed && (
+          <button
+            className="birds-toggle"
+            type="button"
+            aria-pressed={showBirds}
+            onClick={onToggleBirds}
+          >
+            Birds: {showBirds ? 'On' : 'Off'}
+          </button>
+        )}
 
         {!collapsed && (
           <button
@@ -426,20 +446,20 @@ export function Hud({
 
           <div className="string-length-panel-content">
             <label className="string-length-scale">
-              <span>50 m</span>
+              <span>{MAX_KITE_STRING_LENGTH} m</span>
               <input
                 className="string-length-slider"
                 type="range"
                 aria-label="String length"
-                min="3"
-                max="50"
-                step="0.5"
+                min={MIN_KITE_STRING_LENGTH}
+                max={MAX_KITE_STRING_LENGTH}
+                step={KITE_STRING_LENGTH_STEP}
                 value={stringLength}
                 onChange={(event) =>
                   onStringLengthChange(Number(event.currentTarget.value))
                 }
               />
-              <span>3 m</span>
+              <span>{MIN_KITE_STRING_LENGTH} m</span>
             </label>
           </div>
         </details>
@@ -449,7 +469,7 @@ export function Hud({
         <div className="instructions">
           {cameraMode
             ? 'Move your phone to fly · Swipe fallback enabled'
-            : 'Desktop: drag to steer · Mobile: swipe to fly'}
+            : 'Desktop: drag to steer · W/S: adjust string · Mobile: swipe to fly'}
         </div>
       )}
     </div>
