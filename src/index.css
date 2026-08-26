@@ -117,18 +117,6 @@ button {
   }
 }
 
-.canvas {
-  position: fixed;
-  inset: 0;
-}
-
-.hud {
-  pointer-events: none;
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-}
-
 .crosshair {
   position: absolute;
   left: 50%;
@@ -187,12 +175,6 @@ button {
 .title h1 {
   margin: 0;
   font-size: 28px;
-}
-
-.title p {
-  margin: 4px 0 0;
-  font-size: 13px;
-  opacity: 0.85;
 }
 
 /* ensure links are clickable through threeJS canvas layer */
@@ -254,10 +236,6 @@ button {
     font-size: 24px;
   }
 
-  .title p {
-    font-size: 12px;
-  }
-
   .title-copyright {
     font-size: 10px;
   }
@@ -291,41 +269,442 @@ button {
   }
 }
 
-
-
-/* for rotate device overlay, locking to landscape for mobile */
-/* 
-.rotate-overlay {
-  display: none;
+/* Kite Studio */
+.kite-studio-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding:
+    max(16px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  overflow: auto;
+  background: transparent;
+  pointer-events: auto;
+  touch-action: pan-y;
+  user-select: auto;
 }
 
-@media (pointer: coarse) and (orientation: portrait) {
-  .rotate-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 20;
+.kite-studio-loading {
+  color: white;
+  font-size: 14px;
+}
+
+.kite-studio {
+  width: min(920px, 100%);
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  border: 2px solid white;
+  border-radius: 18px;
+  color: white;
+  background: rgba(6, 69, 173, 0.96);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.42);
+}
+
+.kite-studio-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px 14px;
+}
+
+.kite-studio-header h2 {
+  margin: 0;
+  font-size: clamp(24px, 4vw, 34px);
+}
+
+.kite-studio-close {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 2px solid white;
+  border-radius: 50%;
+  color: white;
+  background: #0645ad;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.kite-studio-close:hover,
+.kite-studio-close:focus-visible {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.kite-studio-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 0 22px 14px;
+  border-bottom: 2px solid white;
+}
+
+.kite-studio-tabs button,
+.kite-tool-row button,
+.kite-studio-actions button,
+.kite-library-toolbar button {
+  padding: 9px 12px;
+  border: 1px solid white;
+  border-radius: 8px;
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+}
+
+.kite-studio-tabs button {
+  border-radius: 999px;
+}
+
+.kite-studio-tabs button:hover,
+.kite-tool-row button:hover,
+.kite-studio-actions button:hover,
+.kite-library-toolbar button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.kite-studio-tabs button[aria-selected="true"],
+.kite-tool-row button[aria-pressed="true"],
+.kite-studio-actions button:last-child {
+  color: #0645ad;
+  background: white;
+}
+
+.kite-studio button:active {
+  transform: scale(0.98);
+}
+
+.kite-studio button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.kite-draw-panel {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(260px, 0.9fr);
+  gap: 24px;
+  padding: 22px;
+}
+
+.kite-canvas-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.kite-canvas-label,
+.kite-brush-size-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kite-canvas-label {
+  padding: 0 6px 8px;
+  font-size: 13px;
+}
+
+.kite-canvas-label small,
+.kite-brush-size-heading output {
+  color: #8ee8ff;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kite-canvas-shell {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 18px;
+  border: 2px solid white;
+  border-radius: 12px;
+  background-color: #dbe9ff;
+  background-image:
+    linear-gradient(45deg, #b9c9e4 25%, transparent 25%),
+    linear-gradient(-45deg, #b9c9e4 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #b9c9e4 75%),
+    linear-gradient(-45deg, transparent 75%, #b9c9e4 75%);
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+}
+
+.kite-drawing-canvas {
+  display: block;
+  width: min(100%, 420px);
+  aspect-ratio: 1;
+  border: 2px solid #181425;
+  background: transparent;
+  cursor: crosshair;
+  image-rendering: pixelated;
+  touch-action: none;
+}
+
+.kite-drawing-controls {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kite-control-card,
+.kite-library-toolbar {
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.kite-control-card h3 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.kite-tool-row,
+.kite-studio-actions,
+.kite-library-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kite-tool-row,
+.kite-studio-actions {
+  flex-wrap: wrap;
+}
+
+.kite-palette {
+  display: grid;
+  grid-template-columns: repeat(5, 36px);
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.kite-palette > button {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 2px solid white;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.kite-palette > button[aria-pressed="true"] {
+  outline: 3px solid #8ee8ff;
+  outline-offset: 2px;
+}
+
+.kite-custom-color {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+}
+
+.kite-custom-color input {
+  width: 44px;
+  height: 32px;
+  padding: 1px;
+  border: 1px solid white;
+  border-radius: 5px;
+  background: transparent;
+}
+
+.kite-brush-size,
+.kite-name-field {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.kite-brush-size {
+  margin-top: 13px;
+}
+
+.kite-details-card {
+  display: grid;
+  gap: 12px;
+}
+
+.kite-details-card h3 {
+  margin-bottom: 0;
+}
+
+.kite-brush-size input,
+.kite-name-field input {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid white;
+  border-radius: 7px;
+  color: #181425;
+  background: white;
+  font: inherit;
+}
+
+.kite-brush-size input[type="range"] {
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: #8ee8ff;
+  cursor: pointer;
+}
+
+.kite-studio-actions button {
+  min-height: 42px;
+}
+
+.kite-studio-notice,
+.kite-studio-status,
+.kite-studio-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.16);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.kite-studio-error {
+  color: #ffd0d8;
+}
+
+.kite-library-panel {
+  min-height: 360px;
+  padding: 22px;
+}
+
+.kite-library-toolbar {
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.kite-library-toolbar p {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.82;
+}
+
+.kite-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.kite-library-card {
+  display: grid;
+  min-width: 0;
+  min-height: 150px;
+  justify-items: center;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 10px;
+  color: white;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.kite-library-card:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+.kite-library-card[aria-pressed="true"] {
+  outline: 3px solid white;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.kite-library-card img {
+  width: 84px;
+  height: 84px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.kite-library-card span {
+  width: 100%;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kite-library-card .kite-library-author {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 10px;
+}
+
+.kite-library-card small {
+  padding: 2px 5px;
+  border-radius: 999px;
+  color: #0645ad;
+  background: white;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.kite-studio button:focus-visible,
+.kite-studio input:focus-visible,
+.kite-drawing-canvas:focus-visible {
+  outline: 3px solid #8ee8ff;
+  outline-offset: 3px;
+}
+
+@media (max-width: 680px) {
+  .kite-studio-backdrop {
+    place-items: stretch;
+    padding: 8px;
+  }
+
+  .kite-studio {
+    width: 100%;
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 14px;
+  }
+
+  .kite-studio-header,
+  .kite-draw-panel,
+  .kite-library-panel {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .kite-studio-tabs {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .kite-draw-panel {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .kite-canvas-shell {
+    width: min(100%, 420px);
+    justify-self: center;
+  }
+
+  .kite-studio-actions {
     display: grid;
-    place-items: center;
-    padding: 32px;
-    color: white;
-    text-align: center;
-    background: #111827;
+    grid-template-columns: 1fr;
   }
 
-  .rotate-overlay-card {
-    max-width: 320px;
+  .kite-library-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  .rotate-overlay h2 {
-    margin: 0 0 8px;
-  }
-
-  .rotate-overlay p {
-    margin: 0;
-    opacity: 0.8;
-  }
-} */
-
+}
 
 /* camera pass through on mobile */
 .camera-background {
@@ -411,6 +790,7 @@ button {
 .disco-toggle,
 .motion-toggle,
 .hands-toggle,
+.kite-studio-toggle,
 .hud-collapse-toggle {
   width: 160px;
   padding: 10px 14px;
@@ -448,6 +828,10 @@ button {
   order: 4;
 }
 
+.kite-studio-toggle {
+  order: 4;
+}
+
 .hands-toggle {
   order: 5;
 }
@@ -474,6 +858,7 @@ button {
 .disco-toggle:active,
 .motion-toggle:active,
 .hands-toggle:active,
+.kite-studio-toggle:active,
 .hud-collapse-toggle:active {
   transform: scale(0.98);
 }
@@ -729,6 +1114,7 @@ button {
   .disco-toggle,
   .motion-toggle,
   .hands-toggle,
+  .kite-studio-toggle,
   .hud-collapse-toggle {
     width: 145px;
     padding: 9px 12px;

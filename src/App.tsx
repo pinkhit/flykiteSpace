@@ -1,17 +1,4 @@
-// import { GameCanvas } from './game/scene'
-// import { Hud } from './components/HUD'
-// import './index.css'
-
-// export default function App() {
-//   return (
-//     <main className="app">
-//       <GameCanvas />
-//       <Hud />
-//     </main>
-//   )
-// }
-
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { LoadingScreen } from './components/LoadingScreen'
 import { GameCanvas } from './game/scene'
 import { Hud } from './components/HUD'
@@ -30,6 +17,12 @@ import {
 } from './game/kiteAnchors'
 import './index.css'
 
+const KiteStudio = lazy(() =>
+  import('./components/KiteStudio').then((module) => ({
+    default: module.KiteStudio,
+  }))
+)
+
 function isTextEntryTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false
 
@@ -47,6 +40,8 @@ export default function App() {
   const [cameraMode, setCameraMode] = useState(false)
   const [discoMode, setDiscoMode] = useState(false)
   const [hudCollapsed, setHudCollapsed] = useState(true)
+  const [kiteStudioOpen, setKiteStudioOpen] = useState(false)
+  const [kiteTextureUrl, setKiteTextureUrl] = useState('/kite.png')
   const [showBirds, setShowBirds] = useState(true)
   const [showCrosshair, setShowCrosshair] = useState(true)
   const [showHands, setShowHands] = useState(false)
@@ -175,6 +170,7 @@ export default function App() {
         windSpeed={windSpeed}
         horizonColor={horizonColor}
         lightColor={lightColor}
+        kiteTextureUrl={kiteTextureUrl}
         orientation={orientation}
         pulseSpeed={pulseSpeed}
         pulseWidth={pulseWidth}
@@ -216,6 +212,7 @@ export default function App() {
         onHorizonColorChange={setHorizonColor}
         onLightColorChange={setLightColor}
         onLightingPresetChange={handleLightingPresetChange}
+        onOpenKiteStudio={() => setKiteStudioOpen(true)}
         onSkyColorChange={setSkyColor}
         onSkyBrightnessChange={setSkyBrightness}
         onStringLengthChange={setStringLength}
@@ -233,6 +230,22 @@ export default function App() {
         stringLength={stringLength}
         waterColor={waterColor}
       />
+
+      {kiteStudioOpen && (
+        <Suspense
+          fallback={
+            <div className="kite-studio-backdrop kite-studio-loading">
+              Opening Kite Studio…
+            </div>
+          }
+        >
+          <KiteStudio
+            currentTextureUrl={kiteTextureUrl}
+            onClose={() => setKiteStudioOpen(false)}
+            onUseDesign={setKiteTextureUrl}
+          />
+        </Suspense>
+      )}
 
       <LoadingScreen />
       {hudCollapsed && (

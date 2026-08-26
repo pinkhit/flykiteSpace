@@ -107,6 +107,7 @@ const measuredVelocity = new Vector3()
 
 type KiteProps = {
   discoMode: boolean
+  textureUrl: string
   underwaterEffect: boolean
   stringLength: number
   windSpeed: number
@@ -115,6 +116,7 @@ type KiteProps = {
 // A simple kite that tracks the center of an fps camera
 export function Kite({
   discoMode,
+  textureUrl,
   underwaterEffect,
   stringLength,
   windSpeed,
@@ -132,7 +134,7 @@ export function Kite({
 
   const camera = useThree((state) => state.camera)
 
-  const sourceTexture = useTexture('/kite.png')
+  const sourceTexture = useTexture(textureUrl)
   const kiteTexture = useMemo(() => {
     const texture = sourceTexture.clone()
     texture.magFilter = NearestFilter

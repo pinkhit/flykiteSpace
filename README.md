@@ -9,6 +9,7 @@ A kite flying browser experience.
 - Kite interacts with world objects, supported by particle emission VFXs.
 - Lighting presets and live controls to move between natural or stylized color palettes.
 - Supports pointer and touch controls, device orientation, and optional rear-camera passthrough.
+- Includes a 32×32 pixel kite editor and a moderated, shared Supabase gallery.
 
 ## Graphics and gameplay
 
@@ -76,6 +77,39 @@ npm run preview
 ```
 
 Camera access and device orientation require browser permission and a secure context. Use HTTPS when testing those features on a physical device.
+
+## Shared kite library
+
+The editor works locally without a backend. To enable global uploads and the
+community gallery:
+
+1. Create a Supabase project.
+2. Open its SQL editor and run
+   `supabase/migrations/20260826000000_create_kite_library.sql`, followed by
+   `supabase/migrations/20260826010000_add_kite_artist_name.sql`, then
+   `supabase/migrations/20260826020000_add_kite_country.sql`.
+3. In **Authentication → Sign In / Providers**, enable anonymous sign-ins.
+4. Copy `.env.example` to `.env.local`, then add the project URL and publishable
+   key. Never put a secret or legacy service-role key in a `VITE_` variable.
+5. Add the same two environment variables to the Vercel project and redeploy.
+
+New uploads are visible to their creator immediately and enter the library as
+`pending`. Approve artwork from the Supabase SQL editor after reviewing it:
+
+```sql
+update public.kites
+set moderation_status = 'approved'
+where id = 'the-kite-id';
+```
+
+Rejecting a submission hides it from the public library while preserving a
+moderation record:
+
+```sql
+update public.kites
+set moderation_status = 'rejected'
+where id = 'the-kite-id';
+```
 
 ## Controls
 

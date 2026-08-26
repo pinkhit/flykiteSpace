@@ -1,30 +1,3 @@
-// import { Canvas } from '@react-three/fiber'
-// import { Environment } from './environment'
-// import { CameraRig } from './camera'
-// import { Kite } from './kite'
-// import { KiteString } from './string'
-// import { Hand } from './arm'
-
-// export function GameCanvas() {
-//   return (
-//     <Canvas
-//       className="canvas"
-//       camera={{ position: [0, 1.6, 0], fov: 70 }}
-//       gl={{ antialias: true }}
-//     >
-//       <color attach="background" args={['#8ec5ff']} />
-
-//       <ambientLight intensity={1.2} />
-//       <directionalLight position={[5, 8, 4]} intensity={1.5} />
-
-//       <CameraRig />
-//       <Environment />
-//       <Kite />
-//       <KiteString />
-//       <Hand />
-//     </Canvas>
-//   )
-// }
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment } from './environment'
 import { CameraRig } from './camera'
@@ -51,6 +24,7 @@ type GameCanvasProps = {
   windSpeed: number
   horizonColor: string
   lightColor: string
+  kiteTextureUrl: string
   orientation: OrientationState
   pulseSpeed: number
   pulseWidth: number
@@ -73,6 +47,7 @@ export function GameCanvas({
   windSpeed,
   horizonColor,
   lightColor,
+  kiteTextureUrl,
   orientation,
   pulseSpeed,
   pulseWidth,
@@ -125,6 +100,7 @@ export function GameCanvas({
 
       <Kite
         discoMode={discoMode}
+        textureUrl={kiteTextureUrl}
         underwaterEffect={!cameraMode}
         stringLength={stringLength}
         windSpeed={windSpeed}

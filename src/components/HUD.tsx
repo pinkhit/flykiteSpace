@@ -30,6 +30,7 @@ type HudProps = {
   onHorizonColorChange: (value: string) => void
   onLightColorChange: (value: string) => void
   onLightingPresetChange: (value: LightingPresetId) => void
+  onOpenKiteStudio: () => void
   onToggleDiscoMode: () => void
   onToggleCameraMode: () => void
   onEnableMotion: () => void
@@ -77,6 +78,7 @@ export function Hud({
   onHorizonColorChange,
   onLightColorChange,
   onLightingPresetChange,
+  onOpenKiteStudio,
   onToggleDiscoMode,
   onToggleCameraMode,
   onEnableMotion,
@@ -134,6 +136,16 @@ export function Hud({
         >
           Settings
         </button>
+
+        {!collapsed && (
+          <button
+            className="kite-studio-toggle"
+            type="button"
+            onClick={onOpenKiteStudio}
+          >
+            Kite Studio
+          </button>
+        )}
 
         {!collapsed && (
           <button
