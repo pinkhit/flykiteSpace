@@ -121,6 +121,16 @@ export function Hud({
             </a>
 
             <small className="title-copyright">© Khit Goh 2026</small>
+
+            <div className="kite-studio-callout">
+              <button
+                className="kite-studio-toggle"
+                type="button"
+                onClick={onOpenKiteStudio}
+              >
+                Kite Studio
+              </button>
+            </div>
           </div>
         </>
       )}
@@ -136,16 +146,6 @@ export function Hud({
         >
           Settings
         </button>
-
-        {!collapsed && (
-          <button
-            className="kite-studio-toggle"
-            type="button"
-            onClick={onOpenKiteStudio}
-          >
-            Kite Studio
-          </button>
-        )}
 
         {!collapsed && (
           <button

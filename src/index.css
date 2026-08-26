@@ -205,6 +205,43 @@ button {
   opacity: 0.82;
 }
 
+.kite-studio-callout {
+  width: fit-content;
+  margin-top: 14px;
+  animation: kite-studio-bob 2.4s ease-in-out infinite;
+}
+
+.title .kite-studio-toggle {
+  pointer-events: auto;
+  box-shadow:
+    0 0 7px rgba(255, 255, 255, 0.95),
+    0 0 18px rgba(111, 225, 255, 0.92),
+    0 0 38px rgba(62, 157, 255, 0.72);
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+  transition:
+    box-shadow 180ms ease,
+    transform 120ms ease;
+}
+
+.title .kite-studio-toggle:hover {
+  box-shadow:
+    0 0 9px rgba(255, 255, 255, 1),
+    0 0 24px rgba(111, 225, 255, 1),
+    0 0 48px rgba(62, 157, 255, 0.88);
+}
+
+@keyframes kite-studio-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
 @media (pointer: fine) and (min-width: 769px) {
   .title h1 {
     font-size: 36px;
@@ -216,6 +253,12 @@ button {
 
   .title-copyright {
     font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kite-studio-callout {
+    animation: none;
   }
 }
 
