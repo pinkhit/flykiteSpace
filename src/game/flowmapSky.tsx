@@ -1,19 +1,33 @@
+import { useTexture } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import {
   BackSide,
+  ClampToEdgeWrapping,
   Color,
   DataTexture,
   LinearFilter,
   LinearMipmapLinearFilter,
   RGBAFormat,
   RepeatWrapping,
+  SRGBColorSpace,
   ShaderMaterial,
   UnsignedByteType,
 } from 'three'
 import { setDiscoColor } from './discoPalette'
 
 const TAU = Math.PI * 2
+const STATIC_SKY_URLS = [
+  '/sky/sky5.jpg',
+  '/sky/sky2.jpg',
+  '/sky/sky13.jpg',
+  '/sky/sky15.jpg',
+]
+
+// Begin every panorama request during module initialization, alongside the
+// bird-model preload. This keeps LoadingManager progress in one monotonic batch
+// instead of completing one asset and discovering another batch afterward.
+useTexture.preload(STATIC_SKY_URLS)
 
 function smoothstep(value: number) {
   return value * value * (3 - 2 * value)
@@ -143,8 +157,46 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uLightColor;
   uniform sampler2D uCloudMap;
   uniform sampler2D uFlowMap;
+  uniform sampler2D uStaticSkyMap;
 
   varying vec3 vDirection;
+
+  vec2 equirectangularUv(vec3 direction) {
+    float longitude = atan(direction.z, direction.x);
+    float latitude = asin(clamp(direction.y, -1.0, 1.0));
+    return vec2(
+      0.5 + longitude / ${TAU.toFixed(10)},
+      0.5 + latitude / ${Math.PI.toFixed(10)}
+    );
+  }
+
+  vec3 flowedStaticSky(vec3 direction) {
+    vec2 skyUv = equirectangularUv(direction);
+    // An integer horizontal repeat keeps the flow vector identical on both
+    // sides of the panorama's longitude seam.
+    vec2 flow = texture2D(uFlowMap, skyUv * vec2(2.0, 0.85)).rg * 2.0 - 1.0;
+    flow.x += 0.18;
+
+    // Keep the photographic layer gentler and at half the phase speed of the
+    // foreground clouds. Motion fades at the pole to avoid twisting the zenith.
+    float poleFade = 1.0 - smoothstep(0.82, 1.0, abs(direction.y));
+    flow *= vec2(0.035, 0.012) * poleFade;
+    float staticFlowRate = 0.035 * uWindSpeed * 0.5;
+    float phase0 = fract(uTime * staticFlowRate + 0.5);
+    float phase1 = fract(uTime * staticFlowRate + 1.0);
+    float flowBlend = abs(0.5 - phase0) * 2.0;
+    vec2 skyUv0 = vec2(
+      skyUv.x - flow.x * phase0,
+      clamp(skyUv.y - flow.y * phase0, 0.5, 1.0)
+    );
+    vec2 skyUv1 = vec2(
+      skyUv.x - flow.x * phase1,
+      clamp(skyUv.y - flow.y * phase1, 0.5, 1.0)
+    );
+    vec3 sky0 = texture2D(uStaticSkyMap, skyUv0).rgb;
+    vec3 sky1 = texture2D(uStaticSkyMap, skyUv1).rgb;
+    return mix(sky0, sky1, flowBlend);
+  }
 
   float cloudSample(vec2 uv, vec2 flow, float phase) {
     return texture2D(uCloudMap, uv - flow * phase * 0.32).r;
@@ -184,7 +236,33 @@ const fragmentShader = /* glsl */ `
     vec3 direction = normalize(vDirection);
 
     float height = smoothstep(-0.12, 0.82, direction.y);
-    vec3 sky = mix(uHorizonColor, uSkyColor, height);
+    vec3 atmosphere = mix(uHorizonColor, uSkyColor, height);
+
+    // Philo's panorama supplies the distant photographic cloud structure.
+    // Re-light its luminance and restrained chroma with the active palette so
+    // it still belongs to dusk, moonlit, disco, and other stylized presets.
+    vec3 staticSky = flowedStaticSky(direction);
+    float staticLuminance = dot(staticSky, vec3(0.2126, 0.7152, 0.0722));
+    vec3 staticChroma = clamp(
+      staticSky / max(staticLuminance, 0.08),
+      vec3(0.55),
+      vec3(1.55)
+    );
+    float photographedCloud = smoothstep(0.38, 0.8, staticLuminance);
+    float backgroundCoverage = smoothstep(0.0, 1.0, uCloudCoverage);
+    vec3 staticTint = mix(
+      atmosphere,
+      uCloudColor * 0.68,
+      photographedCloud * mix(0.12, 0.58, backgroundCoverage)
+    );
+    vec3 gradedStaticSky =
+      staticTint *
+      mix(vec3(1.0), staticChroma, 0.22) *
+      mix(0.5, 1.04, staticLuminance);
+    float staticSkyBlend =
+      smoothstep(-0.04, 0.1, direction.y) *
+      mix(0.16, 0.78, backgroundCoverage);
+    vec3 sky = mix(atmosphere, gradedStaticSky, staticSkyBlend);
 
     float clouds = triplanarCloudNoise(direction);
 
@@ -198,7 +276,9 @@ const fragmentShader = /* glsl */ `
     vec3 cloudShadow = mix(uCloudColor * 0.72, uHorizonColor, 0.32);
     vec3 cloudLight = uCloudColor;
     vec3 cloudColor = mix(cloudShadow, cloudLight, smoothstep(0.55, 0.78, clouds));
-    sky = mix(sky, cloudColor, cloudMask * 0.88);
+    // Keep the moving procedural layer subtle enough that the photographic
+    // cloud forms stay readable underneath it.
+    sky = mix(sky, cloudColor, cloudMask * 0.46);
 
     vec3 sunDirection = normalize(vec3(-0.35, 0.58, -0.72));
     float sunDot = max(dot(direction, sunDirection), 0.0);
@@ -240,10 +320,31 @@ export function FlowmapSky({
   skyBrightness,
 }: FlowmapSkyProps) {
   const materialRef = useRef<ShaderMaterial>(null)
+  const loadedStaticSkyTextures = useTexture(STATIC_SKY_URLS)
+  const staticSkyTextures = useMemo(
+    () =>
+      loadedStaticSkyTextures.map((loadedTexture) => {
+        const texture = loadedTexture.clone()
+        texture.colorSpace = SRGBColorSpace
+        texture.wrapS = RepeatWrapping
+        texture.wrapT = ClampToEdgeWrapping
+        texture.magFilter = LinearFilter
+        texture.minFilter = LinearFilter
+        texture.generateMipmaps = false
+        texture.needsUpdate = true
+        return texture
+      }),
+    [loadedStaticSkyTextures]
+  )
+  const staticSkyIndex = Math.floor(
+    hash(1, 8, cloudSeed) * staticSkyTextures.length
+  )
+  const staticSkyTexture = staticSkyTextures[staticSkyIndex]
   const textures = useMemo(
     () => ({ cloud: createCloudTexture(cloudSeed), flow: createFlowTexture() }),
     [cloudSeed]
   )
+
   const uniforms = useMemo(
     () => ({
       uTime: { value: 0 },
@@ -256,8 +357,9 @@ export function FlowmapSky({
       uLightColor: { value: new Color('#43a758') },
       uCloudMap: { value: textures.cloud },
       uFlowMap: { value: textures.flow },
+      uStaticSkyMap: { value: staticSkyTexture },
     }),
-    [textures]
+    [staticSkyTexture, textures]
   )
 
   useEffect(() => {
@@ -266,6 +368,13 @@ export function FlowmapSky({
       textures.flow.dispose()
     }
   }, [textures])
+
+  useEffect(
+    () => () => {
+      staticSkyTextures.forEach((texture) => texture.dispose())
+    },
+    [staticSkyTextures]
+  )
 
   useEffect(() => {
     uniforms.uCloudColor.value.set(cloudColor)

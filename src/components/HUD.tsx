@@ -115,8 +115,10 @@ export function Hud({
               target="_blank"
               rel="noreferrer"
             >
-              come see more of my stuff :)
+              see more of my stuff :)
             </a>
+
+            <small className="title-copyright">© Khit Goh 2026</small>
           </div>
         </>
       )}
@@ -130,7 +132,7 @@ export function Hud({
           aria-expanded={!collapsed}
           onClick={onToggleCollapsed}
         >
-          HUD: {collapsed ? 'Show' : 'Hide'}
+          Settings
         </button>
 
         {!collapsed && (

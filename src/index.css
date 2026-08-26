@@ -26,6 +26,97 @@ button {
   user-select: none;
 }
 
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding:
+    max(24px, env(safe-area-inset-top))
+    max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom))
+    max(24px, env(safe-area-inset-left));
+  overflow: hidden;
+  background: #000;
+  opacity: 1;
+  transition: opacity 550ms ease;
+}
+
+.loading-screen.is-exiting {
+  pointer-events: none;
+  opacity: 0;
+}
+
+.loading-screen-content {
+  display: grid;
+  justify-items: center;
+  width: min(100%, 720px);
+  gap: clamp(22px, 5vh, 42px);
+}
+
+.loading-art {
+  display: block;
+  width: min(52vw, 240px);
+  max-height: 65vh;
+  max-height: 65dvh;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.loading-progress-group {
+  width: min(78vw, 360px);
+  color: white;
+  text-align: center;
+}
+
+.loading-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border: 2px solid white;
+  background: #000;
+}
+
+.loading-progress-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: white;
+  transform-origin: left center;
+  transition: transform 180ms ease-out;
+}
+
+.loading-progress-label {
+  margin: 12px 0 0;
+  font-size: clamp(12px, 2.5vw, 15px);
+  font-family: "Courier New", Courier, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.copyright-notice {
+  pointer-events: none;
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  left: max(16px, env(safe-area-inset-left));
+  z-index: 1100;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.72);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-screen,
+  .loading-progress-fill {
+    transition-duration: 0.01ms;
+  }
+}
+
 .canvas {
   position: fixed;
   inset: 0;
@@ -95,7 +186,7 @@ button {
 
 .title h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 28px;
 }
 
 .title p {
@@ -111,7 +202,7 @@ button {
   max-width: min(320px, 50vw);
   margin-top: 6px;
   color: #0645ad;
-  font-size: 12px;
+  font-size: 16px;
   line-height: 1.3;
   text-decoration: underline;
   text-underline-offset: 4px;
@@ -123,22 +214,35 @@ button {
   opacity: 0.8;
 }
 
+.title-copyright {
+  display: block;
+  margin-top: 8px;
+  color: #0645ad;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  opacity: 0.82;
+}
+
 @media (pointer: fine) and (min-width: 769px) {
   .title h1 {
-    font-size: 26.6px;
+    font-size: 36px;
   }
 
   .portfolio-link {
-    font-size: 16px;
+    font-size: 20px;
+  }
+
+  .title-copyright {
+    font-size: 12px;
   }
 }
 
 
-/* portrait friedndly HUD */
+/* portrait friendly HUD */
 @media (pointer: coarse) and (orientation: portrait) {
   .portfolio-link {
     max-width: 50vw;
-    font-size: 10px;
+    font-size: 14px;
   }
 
   .title {
@@ -147,11 +251,15 @@ button {
   }
 
   .title h1 {
-    font-size: 18px;
+    font-size: 24px;
   }
 
   .title p {
     font-size: 12px;
+  }
+
+  .title-copyright {
+    font-size: 10px;
   }
 
   .instructions {

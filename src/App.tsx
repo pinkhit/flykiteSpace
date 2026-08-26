@@ -12,6 +12,7 @@
 // }
 
 import { useEffect, useState } from 'react'
+import { LoadingScreen } from './components/LoadingScreen'
 import { GameCanvas } from './game/scene'
 import { Hud } from './components/HUD'
 import { CameraBackground } from './components/passThroughCam'
@@ -45,7 +46,7 @@ function isTextEntryTarget(target: EventTarget | null) {
 export default function App() {
   const [cameraMode, setCameraMode] = useState(false)
   const [discoMode, setDiscoMode] = useState(false)
-  const [hudCollapsed, setHudCollapsed] = useState(false)
+  const [hudCollapsed, setHudCollapsed] = useState(true)
   const [showBirds, setShowBirds] = useState(true)
   const [showCrosshair, setShowCrosshair] = useState(true)
   const [showHands, setShowHands] = useState(false)
@@ -232,6 +233,11 @@ export default function App() {
         stringLength={stringLength}
         waterColor={waterColor}
       />
+
+      <LoadingScreen />
+      {hudCollapsed && (
+        <small className="copyright-notice">© Khit Goh 2026</small>
+      )}
     </main>
   )
 }
