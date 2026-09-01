@@ -3,11 +3,19 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { Euler, MathUtils, Quaternion, Vector3 } from 'three'
 import type { OrientationState } from '../hooks/useDeviceGyro'
 import { lookVelocity } from './cameraInput'
+import { SUN_DIRECTION } from './sun'
 
 const HALF_SQRT = Math.sqrt(0.5)
 const CAMERA_ALIGNMENT = new Quaternion(-HALF_SQRT, 0, 0, HALF_SQRT)
 const SCREEN_AXIS = new Vector3(0, 0, 1)
 const LOOK_SENSITIVITY = 0.004
+const MAX_LOOK_PITCH = MathUtils.degToRad(85)
+const INITIAL_LOOK_DIRECTION = new Vector3(...SUN_DIRECTION).normalize()
+const INITIAL_YAW = Math.atan2(
+  -INITIAL_LOOK_DIRECTION.x,
+  -INITIAL_LOOK_DIRECTION.z
+)
+const INITIAL_PITCH = Math.asin(INITIAL_LOOK_DIRECTION.y)
 
 function getScreenOrientation() {
   if (typeof window === 'undefined') return 0
@@ -55,14 +63,16 @@ export function CameraRig({ cameraMode, orientation }: CameraRigProps) {
   const camera = useThree((state) => state.camera)
   const gl = useThree((state) => state.gl)
 
-  const yaw = useRef(0)
-  const pitch = useRef(0)
+  const yaw = useRef(INITIAL_YAW)
+  const pitch = useRef(INITIAL_PITCH)
   const dragging = useRef(false)
   const lastPointer = useRef({ x: 0, y: 0 })
   const physicalRotationActive = useRef(false)
   const viewMotionReady = useRef(false)
 
-  const pointerRotation = useRef(new Euler(0, 0, 0, 'YXZ'))
+  const pointerRotation = useRef(
+    new Euler(INITIAL_PITCH, INITIAL_YAW, 0, 'YXZ')
+  )
   const deviceEuler = useRef(new Euler(0, 0, 0, 'YXZ'))
   const deviceQuaternion = useRef(new Quaternion())
   const inverseCalibration = useRef(new Quaternion())
@@ -104,8 +114,8 @@ export function CameraRig({ cameraMode, orientation }: CameraRigProps) {
       yaw.current -= dx * LOOK_SENSITIVITY
       pitch.current = MathUtils.clamp(
         pitch.current - dy * LOOK_SENSITIVITY,
-        -1.2,
-        1.2
+        -MAX_LOOK_PITCH,
+        MAX_LOOK_PITCH
       )
       lookVelocity.set(dx, dy)
     }
@@ -182,7 +192,11 @@ export function CameraRig({ cameraMode, orientation }: CameraRigProps) {
     } else {
       if (physicalRotationActive.current) {
         pointerRotation.current.setFromQuaternion(camera.quaternion, 'YXZ')
-        pitch.current = MathUtils.clamp(pointerRotation.current.x, -1.2, 1.2)
+        pitch.current = MathUtils.clamp(
+          pointerRotation.current.x,
+          -MAX_LOOK_PITCH,
+          MAX_LOOK_PITCH
+        )
         yaw.current = pointerRotation.current.y
         physicalRotationActive.current = false
         viewMotionReady.current = false

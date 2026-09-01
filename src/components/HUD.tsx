@@ -10,6 +10,10 @@ import {
 } from '../game/kiteAnchors'
 
 type HudProps = {
+  birdHitCount: number
+  birdHitSequence: number
+  birdBloomColor: string
+  birdBloomIntensity: number
   bubbleColor: string
   cameraMode: boolean
   collapsed: boolean
@@ -22,6 +26,10 @@ type HudProps = {
   lightColor: string
   lightingPreset: LightingPresetId | null
   motionPermission: 'unknown' | 'granted' | 'denied'
+  hitmarkerEmphasized: boolean
+  hitmarkerSequence: number
+  onBirdBloomColorChange: (value: string) => void
+  onBirdBloomIntensityChange: (value: number) => void
   onBubbleColorChange: (value: string) => void
   onCloudColorChange: (value: string) => void
   onCloudCoverageChange: (value: number) => void
@@ -58,6 +66,10 @@ type HudProps = {
 }
 
 export function Hud({
+  birdHitCount,
+  birdHitSequence,
+  birdBloomColor,
+  birdBloomIntensity,
   bubbleColor,
   cameraMode,
   collapsed,
@@ -70,6 +82,10 @@ export function Hud({
   lightColor,
   lightingPreset,
   motionPermission,
+  hitmarkerEmphasized,
+  hitmarkerSequence,
+  onBirdBloomColorChange,
+  onBirdBloomIntensityChange,
   onBubbleColorChange,
   onCloudColorChange,
   onCloudCoverageChange,
@@ -135,7 +151,23 @@ export function Hud({
         </>
       )}
 
-      {showCrosshair && <Crosshair />}
+      {showCrosshair && (
+        <Crosshair
+          hitmarkerEmphasized={hitmarkerEmphasized}
+          hitmarkerSequence={hitmarkerSequence}
+        />
+      )}
+
+      {birdHitSequence > 0 && (
+        <output
+          aria-live="polite"
+          className="bird-hit-tracker"
+          key={birdHitSequence}
+        >
+          <strong>{birdHitCount}</strong>
+          <span>birds collected</span>
+        </output>
+      )}
 
       <div className="hud-controls">
         <button
@@ -268,7 +300,7 @@ export function Hud({
                 type="range"
                 min="0"
                 max="1"
-                step="0.05"
+                step="0.01"
                 value={reflectionClarity}
                 onChange={(event) =>
                   onReflectionClarityChange(Number(event.currentTarget.value))
@@ -368,6 +400,40 @@ export function Hud({
                   }
                 />
               </span>
+            </label>
+
+            <label className="color-control">
+              <span>
+                Bloom color
+                <input
+                  type="color"
+                  aria-label="Bird bloom color"
+                  value={birdBloomColor}
+                  onChange={(event) =>
+                    onBirdBloomColorChange(event.currentTarget.value)
+                  }
+                />
+              </span>
+            </label>
+
+            <label>
+              <span>
+                Bloom intensity{' '}
+                <output>{birdBloomIntensity.toFixed(2)}</output>
+              </span>
+              <input
+                type="range"
+                aria-label="Bird bloom intensity"
+                min="0"
+                max="1.5"
+                step="0.05"
+                value={birdBloomIntensity}
+                onChange={(event) =>
+                  onBirdBloomIntensityChange(
+                    Number(event.currentTarget.value)
+                  )
+                }
+              />
             </label>
 
             <label>

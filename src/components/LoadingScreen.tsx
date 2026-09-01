@@ -6,7 +6,11 @@ const LOADING_ART_URL = '/loading/loading_01.gif'
 const FADE_DELAY_MS = 250
 const REMOVE_DELAY_MS = 800
 
-export function LoadingScreen() {
+type LoadingScreenProps = {
+  onLoaded: () => void
+}
+
+export function LoadingScreen({ onLoaded }: LoadingScreenProps) {
   const { active, progress, total } = useProgress()
   const [isExiting, setIsExiting] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
@@ -20,16 +24,16 @@ export function LoadingScreen() {
       () => setIsExiting(true),
       FADE_DELAY_MS
     )
-    const removeTimer = window.setTimeout(
-      () => setIsVisible(false),
-      REMOVE_DELAY_MS
-    )
+    const removeTimer = window.setTimeout(() => {
+      setIsVisible(false)
+      onLoaded()
+    }, REMOVE_DELAY_MS)
 
     return () => {
       window.clearTimeout(fadeTimer)
       window.clearTimeout(removeTimer)
     }
-  }, [isComplete])
+  }, [isComplete, onLoaded])
 
   if (!isVisible) return null
 

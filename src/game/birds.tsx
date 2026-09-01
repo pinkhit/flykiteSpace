@@ -2,19 +2,29 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import { useEffect, useMemo, useRef } from 'react'
 import {
+  AdditiveBlending,
   AnimationAction,
   AnimationMixer,
+  Camera,
+  CanvasTexture,
   Color,
   DynamicDrawUsage,
   Group,
   InstancedMesh,
+  Material,
   MathUtils,
+  Mesh,
+  MeshStandardMaterial,
   Object3D,
+  Sprite,
+  SpriteMaterial,
   Vector3,
 } from 'three'
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { setDiscoColor } from './discoPalette'
 import { kiteMotion } from './kiteAnchors'
+import { kiteLibraryCubeMotion } from './kiteLibraryCubeMotion'
+import type { ImpactFeedback } from './impactFeedback'
 import {
   createVoxelCrossGeometry,
   type VoxelParticleShape,
@@ -96,6 +106,11 @@ const BIRD_HIT_LIGHT_DIRECTION = new Vector3(-0.35, 0.8, -0.48).normalize()
 const BIRD_HIT_DISCO_LIGHT_SPEED = 0.2
 const BIRD_HIT_DISCO_LIGHT_SATURATION = 1
 const BIRD_HIT_DISCO_LIGHT_BRIGHTNESS = 0.68
+const BIRD_BLOOM_REFERENCE_INTENSITY = 1.7
+const BIRD_HALO_OPACITY = 0.42
+const BIRD_HALO_SIZE = 1.55
+const BIRD_HALO_PULSE_AMOUNT = 0.08
+const BIRD_HALO_PULSE_SPEED = 1.8
 const BIRD_PHASE_STEP = 1.618
 const BIRD_INITIAL_YAW_OFFSET = 0.28
 const MAX_BIRD_FRAME_DELTA = 1 / 20
@@ -146,6 +161,8 @@ type BirdHitVoxel = {
 
 type BirdModelInstance = {
   action: AnimationAction | null
+  emissiveMaterials: Material[]
+  halo: Sprite
   mixer: AnimationMixer
   root: Group
 }
@@ -154,7 +171,58 @@ const previousKitePosition = new Vector3()
 const kiteTravel = new Vector3()
 const kiteToBird = new Vector3()
 const closestKitePoint = new Vector3()
+const birdViewPosition = new Vector3()
 const hitVoxelTransform = new Object3D()
+
+function createBirdHaloTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 128
+  canvas.height = 128
+  const context = canvas.getContext('2d')
+
+  if (context) {
+    const glow = context.createRadialGradient(64, 64, 0, 64, 64, 64)
+    glow.addColorStop(0, 'rgba(255, 255, 255, 0.98)')
+    glow.addColorStop(0.18, 'rgba(255, 247, 205, 0.7)')
+    glow.addColorStop(0.52, 'rgba(255, 235, 155, 0.24)')
+    glow.addColorStop(1, 'rgba(255, 225, 128, 0)')
+    context.fillStyle = glow
+    context.fillRect(0, 0, canvas.width, canvas.height)
+  }
+
+  const texture = new CanvasTexture(canvas)
+  texture.needsUpdate = true
+  return texture
+}
+
+function cloneEmissiveBirdMaterials(root: Object3D) {
+  const emissiveMaterials: Material[] = []
+
+  root.traverse((object) => {
+    if (!(object instanceof Mesh)) return
+
+    const sourceMaterials = Array.isArray(object.material)
+      ? object.material
+      : [object.material]
+    const clonedMaterials = sourceMaterials.map((sourceMaterial) => {
+      const material = sourceMaterial.clone()
+      if (material instanceof MeshStandardMaterial) {
+        material.emissive.set('#ffffff')
+        material.emissiveIntensity = 0
+        material.emissiveMap = material.map
+        material.toneMapped = false
+      }
+      emissiveMaterials.push(material)
+      return material
+    })
+
+    object.material = Array.isArray(object.material)
+      ? clonedMaterials
+      : clonedMaterials[0]
+  })
+
+  return emissiveMaterials
+}
 
 const hitVoxelVertexShader = /* glsl */ `
   varying vec3 vWorldNormal;
@@ -171,6 +239,7 @@ const hitVoxelVertexShader = /* glsl */ `
 
 const hitVoxelFragmentShader = /* glsl */ `
   uniform vec3 uBaseColor;
+  uniform vec3 uBloomColor;
   uniform vec3 uLightColor;
   uniform vec3 uLightDirection;
   uniform float uAmbientBrightness;
@@ -186,8 +255,9 @@ const hitVoxelFragmentShader = /* glsl */ `
     vec3 lightIntensity = vec3(uAmbientBrightness)
       + uLightColor * blockLight * uDirectionalLightContribution;
     vec3 shadedPoof = uBaseColor * lightIntensity;
+    vec3 emissivePoof = uBloomColor;
 
-    gl_FragColor = vec4(shadedPoof, uOpacity);
+    gl_FragColor = vec4(shadedPoof + emissivePoof, uOpacity);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
@@ -288,7 +358,8 @@ function nextRandom(bird: BirdState) {
 function emitBirdHitVoxels(
   bird: BirdState,
   voxels: BirdHitVoxel[],
-  firstVoxelIndex: number
+  firstVoxelIndex: number,
+  sourceVelocity: Vector3
 ) {
   let nextVoxelIndex = firstVoxelIndex
 
@@ -331,11 +402,11 @@ function emitBirdHitVoxels(
       nextRandom(bird) * BIRD_HIT_VOXEL_SIZE_VARIATION
     voxel.velocity.set(
       Math.cos(azimuth) * horizontalDirection * speed +
-        kiteMotion.velocity.x * BIRD_HIT_VOXEL_SOURCE_VELOCITY_TRANSFER,
+        sourceVelocity.x * BIRD_HIT_VOXEL_SOURCE_VELOCITY_TRANSFER,
       verticalDirection * speed +
-        kiteMotion.velocity.y * BIRD_HIT_VOXEL_SOURCE_VELOCITY_TRANSFER,
+        sourceVelocity.y * BIRD_HIT_VOXEL_SOURCE_VELOCITY_TRANSFER,
       Math.sin(azimuth) * horizontalDirection * speed +
-        kiteMotion.velocity.z * BIRD_HIT_VOXEL_SOURCE_VELOCITY_TRANSFER
+        sourceVelocity.z * BIRD_HIT_VOXEL_SOURCE_VELOCITY_TRANSFER
     )
   }
 
@@ -459,9 +530,14 @@ function updateFlyingBird(
   setFlyingPosition(bird, playerPosition)
 }
 
-function kitePathHitsBird(birdPosition: Vector3) {
-  kiteTravel.subVectors(kiteMotion.position, previousKitePosition)
-  kiteToBird.subVectors(birdPosition, previousKitePosition)
+function movingSpherePathHitsBird(
+  previousPosition: Vector3,
+  position: Vector3,
+  collisionRadius: number,
+  birdPosition: Vector3
+) {
+  kiteTravel.subVectors(position, previousPosition)
+  kiteToBird.subVectors(birdPosition, previousPosition)
   const travelLengthSquared = kiteTravel.lengthSq()
   const pathProgress =
     travelLengthSquared > 0.000001
@@ -472,9 +548,9 @@ function kitePathHitsBird(birdPosition: Vector3) {
         )
       : 1
   closestKitePoint
-    .copy(previousKitePosition)
+    .copy(previousPosition)
     .addScaledVector(kiteTravel, pathProgress)
-  const collisionDistance = KITE_COLLISION_RADIUS + BIRD_COLLISION_RADIUS
+  const collisionDistance = collisionRadius + BIRD_COLLISION_RADIUS
 
   return (
     closestKitePoint.distanceToSquared(birdPosition) <=
@@ -482,11 +558,22 @@ function kitePathHitsBird(birdPosition: Vector3) {
   )
 }
 
-function beginImpact(bird: BirdState) {
+function birdIsInPlayerView(birdPosition: Vector3, camera: Camera) {
+  birdViewPosition.copy(birdPosition).project(camera)
+
+  return (
+    birdViewPosition.z >= -1 &&
+    birdViewPosition.z <= 1 &&
+    Math.abs(birdViewPosition.x) <= 1 &&
+    Math.abs(birdViewPosition.y) <= 1
+  )
+}
+
+function beginImpact(bird: BirdState, sourceVelocity: Vector3) {
   bird.age = 0
   bird.mode = 'impact'
   bird.impactOrigin.copy(bird.position)
-  bird.impactVelocity.copy(kiteMotion.velocity)
+  bird.impactVelocity.copy(sourceVelocity)
 }
 
 function respawnBird(bird: BirdState, playerPosition: Vector3) {
@@ -505,15 +592,21 @@ function respawnBird(bird: BirdState, playerPosition: Vector3) {
 }
 
 type BirdsProps = {
+  bloomColor: string
+  bloomIntensity: number
   discoMode: boolean
   lightColor: string
+  onKiteImpact: (feedback?: ImpactFeedback) => void
   visible: boolean
   windSpeed: number
 }
 
 export function Birds({
+  bloomColor,
+  bloomIntensity,
   discoMode,
   lightColor,
+  onKiteImpact,
   visible,
   windSpeed,
 }: BirdsProps) {
@@ -525,6 +618,8 @@ export function Birds({
   const hitVoxelsRef = useRef<BirdHitVoxel[] | null>(null)
   const nextHitVoxel = useRef(0)
   const kitePositionReady = useRef(false)
+  const appliedBloomColor = useRef('')
+  const appliedBloomIntensity = useRef(-1)
   if (birdsRef.current === null) {
     birdsRef.current = createBirds(camera.position)
   }
@@ -537,6 +632,7 @@ export function Birds({
     () => ({
       uAmbientBrightness: { value: BIRD_HIT_AMBIENT_BRIGHTNESS },
       uBaseColor: { value: new Color(BIRD_HIT_VOXEL_COLOR) },
+      uBloomColor: { value: new Color('#ffffff') },
       uDirectionalLightContribution: {
         value: BIRD_HIT_DIRECTIONAL_LIGHT_CONTRIBUTION,
       },
@@ -545,6 +641,20 @@ export function Birds({
       uOpacity: { value: BIRD_HIT_VOXEL_OPACITY },
     }),
     [lightColor]
+  )
+  const haloTexture = useMemo(() => createBirdHaloTexture(), [])
+  const haloMaterial = useMemo(
+    () =>
+      new SpriteMaterial({
+        blending: AdditiveBlending,
+        color: '#ffffff',
+        depthWrite: false,
+        map: haloTexture,
+        opacity: BIRD_HALO_OPACITY,
+        toneMapped: false,
+        transparent: true,
+      }),
+    [haloTexture]
   )
   const modelInstances = useMemo<BirdModelInstance[]>(() => {
     const flightClip =
@@ -555,15 +665,20 @@ export function Birds({
       const root = new Group()
       const visual = cloneSkeleton(scene)
       visual.position.copy(BIRD_MODEL_CENTER).multiplyScalar(-1)
+      const emissiveMaterials = cloneEmissiveBirdMaterials(visual)
       root.add(visual)
+      const halo = new Sprite(haloMaterial)
+      halo.renderOrder = 500
       const mixer = new AnimationMixer(visual)
       return {
         action: flightClip ? mixer.clipAction(flightClip) : null,
+        emissiveMaterials,
+        halo,
         mixer,
         root,
       }
     })
-  }, [animations, scene])
+  }, [animations, haloMaterial, scene])
   const hitCrossGeometry = useMemo(() => createVoxelCrossGeometry(), [])
 
   useEffect(() => {
@@ -575,11 +690,20 @@ export function Birds({
     })
 
     return () => {
-      modelInstances.forEach(({ mixer }) => {
+      modelInstances.forEach(({ emissiveMaterials, mixer }) => {
         mixer.stopAllAction()
+        emissiveMaterials.forEach((material) => material.dispose())
       })
     }
   }, [modelInstances])
+
+  useEffect(
+    () => () => {
+      haloMaterial.dispose()
+      haloTexture.dispose()
+    },
+    [haloMaterial, haloTexture]
+  )
 
   useEffect(() => {
     hitCubeMeshRef.current?.instanceMatrix.setUsage(DynamicDrawUsage)
@@ -593,6 +717,31 @@ export function Birds({
   }, [discoMode, hitVoxelUniforms, lightColor])
 
   useFrame((state, delta) => {
+    const safeBloomIntensity = Math.max(0, bloomIntensity)
+    if (
+      appliedBloomColor.current !== bloomColor ||
+      appliedBloomIntensity.current !== safeBloomIntensity
+    ) {
+      appliedBloomColor.current = bloomColor
+      appliedBloomIntensity.current = safeBloomIntensity
+      haloMaterial.color
+        .set(bloomColor)
+        .multiplyScalar(
+          safeBloomIntensity / BIRD_BLOOM_REFERENCE_INTENSITY
+        )
+      hitVoxelUniforms.uBloomColor.value
+        .set(bloomColor)
+        .multiplyScalar(safeBloomIntensity)
+
+      modelInstances.forEach(({ emissiveMaterials }) => {
+        emissiveMaterials.forEach((material) => {
+          if (!(material instanceof MeshStandardMaterial)) return
+          material.emissive.set(bloomColor)
+          material.emissiveIntensity = safeBloomIntensity
+        })
+      })
+    }
+
     if (!visible) {
       if (hitCubeMeshRef.current) hitCubeMeshRef.current.count = 0
       if (hitCrossMeshRef.current) hitCrossMeshRef.current.count = 0
@@ -644,16 +793,50 @@ export function Birds({
           flightSpeedMultiplier
         )
 
-        if (
+        const hitByKite =
           kitePositionReady.current &&
-          kitePathHitsBird(bird.position)
-        ) {
+          movingSpherePathHitsBird(
+            previousKitePosition,
+            kiteMotion.position,
+            KITE_COLLISION_RADIUS,
+            bird.position
+          )
+        const hitByLibraryCube =
+          kiteLibraryCubeMotion.active &&
+          movingSpherePathHitsBird(
+            kiteLibraryCubeMotion.previousPosition,
+            kiteLibraryCubeMotion.position,
+            kiteLibraryCubeMotion.collisionRadius,
+            bird.position
+          )
+        const impactSourceVelocity = hitByKite
+          ? kiteMotion.velocity
+          : hitByLibraryCube
+            ? kiteLibraryCubeMotion.velocity
+            : null
+
+        if (impactSourceVelocity) {
           nextHitVoxel.current = emitBirdHitVoxels(
             bird,
             hitVoxels,
-            nextHitVoxel.current
+            nextHitVoxel.current,
+            impactSourceVelocity
           )
-          beginImpact(bird)
+          if (hitByKite) {
+            onKiteImpact({ birdHit: true })
+          } else if (hitByLibraryCube) {
+            const hitBirdIsVisible = birdIsInPlayerView(
+              bird.position,
+              camera
+            )
+            onKiteImpact({
+              birdHit: true,
+              birdHitValue: 2,
+              emphasized: hitBirdIsVisible,
+              showHitmarker: hitBirdIsVisible,
+            })
+          }
+          beginImpact(bird, impactSourceVelocity)
         }
       }
 
@@ -786,6 +969,16 @@ export function Birds({
         scaleY * BIRD_MODEL_SCALE,
         scaleZ * BIRD_MODEL_SCALE
       )
+      modelInstance.halo.position.copy(bird.position)
+      const haloScale =
+        BIRD_HALO_SIZE *
+        Math.max(scaleX, scaleY, scaleZ) *
+        (1 +
+          Math.sin(
+            state.clock.elapsedTime * BIRD_HALO_PULSE_SPEED + bird.phase
+          ) *
+            BIRD_HALO_PULSE_AMOUNT)
+      modelInstance.halo.scale.set(haloScale, haloScale, 1)
       if (bird.mode !== 'waiting') {
         modelInstance.mixer.update(effectDelta * animationTimeScale)
       }
@@ -868,8 +1061,11 @@ export function Birds({
 
   return (
     <group visible={visible}>
-      {modelInstances.map(({ root }) => (
-        <primitive key={root.uuid} object={root} dispose={null} />
+      {modelInstances.map(({ halo, root }) => (
+        <group key={root.uuid}>
+          <primitive object={root} dispose={null} />
+          <primitive object={halo} dispose={null} />
+        </group>
       ))}
       <instancedMesh
         ref={hitCubeMeshRef}
@@ -880,6 +1076,7 @@ export function Birds({
       >
         <boxGeometry args={[1, 1, 1]} />
         <shaderMaterial
+          blending={AdditiveBlending}
           depthWrite={false}
           fragmentShader={hitVoxelFragmentShader}
           toneMapped={false}
@@ -897,6 +1094,7 @@ export function Birds({
       >
         <primitive attach="geometry" object={hitCrossGeometry} />
         <shaderMaterial
+          blending={AdditiveBlending}
           depthWrite={false}
           fragmentShader={hitVoxelFragmentShader}
           toneMapped={false}

@@ -15,6 +15,8 @@ import {
   UnsignedByteType,
 } from 'three'
 import { setDiscoColor } from './discoPalette'
+import { SKY_RADIUS } from './environmentBounds'
+import { SUN_DIRECTION } from './sun'
 
 const TAU = Math.PI * 2
 const STATIC_SKY_URLS = [
@@ -280,7 +282,7 @@ const fragmentShader = /* glsl */ `
     // cloud forms stay readable underneath it.
     sky = mix(sky, cloudColor, cloudMask * 0.46);
 
-    vec3 sunDirection = normalize(vec3(-0.35, 0.58, -0.72));
+    vec3 sunDirection = normalize(vec3(${SUN_DIRECTION.join(', ')}));
     float sunDot = max(dot(direction, sunDirection), 0.0);
     float sunGlow = pow(sunDot, 18.0) * 0.35;
     float sunDisc = smoothstep(0.99935, 0.99975, sunDot);
@@ -435,7 +437,7 @@ export function FlowmapSky({
 
   return (
     <mesh renderOrder={-1000} frustumCulled={false}>
-      <sphereGeometry args={[120, 64, 32]} />
+      <sphereGeometry args={[SKY_RADIUS, 64, 32]} />
       <shaderMaterial
         ref={materialRef}
         uniforms={uniforms}

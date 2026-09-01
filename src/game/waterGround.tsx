@@ -7,8 +7,10 @@ import {
   Vector2,
   Vector3,
 } from 'three'
+import { SUN_DIRECTION } from './sun'
 import { Water } from 'three/examples/jsm/objects/Water.js'
 import { kiteMotion, WATER_LEVEL } from './kiteAnchors'
+import { kiteLibraryCubeMotion } from './kiteLibraryCubeMotion'
 import { setDiscoColor } from './discoPalette'
 
 const WATER_SIZE = 1400
@@ -28,6 +30,56 @@ type KiteRippleEvent = {
   strength: number
 }
 
+type CubeRippleState = {
+  contactDuration: number
+  lastSurfacePosition: Vector2
+  movementDistance: number
+  previousSubmersion: number
+  timeAboveSurface: number
+  timeSinceEmission: number
+}
+
+function createCubeRippleState(): CubeRippleState {
+  return {
+    contactDuration: 0,
+    lastSurfacePosition: new Vector2(),
+    movementDistance: 0,
+    previousSubmersion: 0,
+    timeAboveSurface: Number.POSITIVE_INFINITY,
+    timeSinceEmission: 0,
+  }
+}
+
+function emitRippleEvent(
+  events: KiteRippleEvent[],
+  firstIndex: number,
+  position: Vector3,
+  strength: number
+) {
+  let rippleIndex = -1
+  for (let offset = 0; offset < KITE_RIPPLE_COUNT; offset += 1) {
+    const index = (firstIndex + offset) % KITE_RIPPLE_COUNT
+    if (!events[index].active) {
+      rippleIndex = index
+      break
+    }
+  }
+  if (rippleIndex === -1) {
+    rippleIndex = events.reduce(
+      (oldestIndex, ripple, index, ripples) =>
+        ripple.age > ripples[oldestIndex].age ? index : oldestIndex,
+      0
+    )
+  }
+
+  const ripple = events[rippleIndex]
+  ripple.active = true
+  ripple.age = 0
+  ripple.center.set(position.x, position.z)
+  ripple.strength = strength
+  return (rippleIndex + 1) % KITE_RIPPLE_COUNT
+}
+
 const radialPulseShader = /* glsl */ `
   uniform vec2 pulseCenter;
   uniform float pulseSpeed;
@@ -41,6 +93,9 @@ const radialPulseShader = /* glsl */ `
   uniform vec2 kiteWakeCenter;
   uniform vec2 kiteWakeVelocity;
   uniform float kiteWakeStrength;
+  uniform vec2 cubeWakeCenter;
+  uniform vec2 cubeWakeVelocity;
+  uniform float cubeWakeStrength;
   uniform vec2 kiteFoamCenter;
   uniform vec2 kiteFoamCenters[${KITE_FOAM_COUNT}];
   uniform float kiteFoamAges[${KITE_FOAM_COUNT}];
@@ -130,6 +185,30 @@ const radialPulseShader = /* glsl */ `
     return direction * clamp(slope, -0.13, 0.13);
   }
 
+  vec2 movingSurfaceWake(
+    vec2 worldPosition,
+    vec2 wakeCenter,
+    vec2 wakeVelocity,
+    float wakeStrength
+  ) {
+    if (wakeStrength <= inactiveEffectThreshold) return vec2(0.0);
+    vec2 fromSource = worldPosition - wakeCenter;
+    float sourceSpeed = length(wakeVelocity);
+    vec2 travelDirection = wakeVelocity / max(sourceSpeed, 0.001);
+    vec2 wakeSide = vec2(-travelDirection.y, travelDirection.x);
+    float alongWake = dot(fromSource, travelDirection);
+    float acrossWake = dot(fromSource, wakeSide);
+    float behindSource = 1.0 - smoothstep(-0.4, 0.8, alongWake);
+    float wakeEnvelope = behindSource
+      * exp(-abs(acrossWake) * 0.72)
+      * exp(-max(-alongWake, 0.0) * 0.16);
+    float moving = smoothstep(0.15, 2.5, sourceSpeed);
+    float wakeSlope = sin(
+      acrossWake * 5.0 + alongWake * 1.15 - time * 4.2
+    ) * wakeEnvelope * moving * 0.018 * wakeStrength;
+    return wakeSide * wakeSlope;
+  }
+
   vec4 getNoise(vec2 worldPosition) {
     vec2 fromCenter = worldPosition - pulseCenter;
     float radius = length(fromCenter);
@@ -170,23 +249,19 @@ const radialPulseShader = /* glsl */ `
       );
     }
 
-    // A restrained directional wake appears only while the kite is moving.
-    vec2 fromKite = worldPosition - kiteWakeCenter;
-    float kiteSpeed = length(kiteWakeVelocity);
-    vec2 travelDirection = kiteWakeVelocity / max(kiteSpeed, 0.001);
-    vec2 wakeSide = vec2(-travelDirection.y, travelDirection.x);
-
-    float alongWake = dot(fromKite, travelDirection);
-    float acrossWake = dot(fromKite, wakeSide);
-    float behindKite = 1.0 - smoothstep(-0.4, 0.8, alongWake);
-    float wakeEnvelope = behindKite
-      * exp(-abs(acrossWake) * 0.72)
-      * exp(-max(-alongWake, 0.0) * 0.16);
-    float moving = smoothstep(0.15, 2.5, kiteSpeed);
-    float wakeSlope = sin(
-      acrossWake * 5.0 + alongWake * 1.15 - time * 4.2
-    ) * wakeEnvelope * moving * 0.018 * kiteWakeStrength;
-    gradient += wakeSide * wakeSlope;
+    // Restrained directional wakes appear only while a source is moving.
+    gradient += movingSurfaceWake(
+      worldPosition,
+      kiteWakeCenter,
+      kiteWakeVelocity,
+      kiteWakeStrength
+    );
+    gradient += movingSurfaceWake(
+      worldPosition,
+      cubeWakeCenter,
+      cubeWakeVelocity,
+      cubeWakeStrength
+    );
 
     vec3 tangentNormal = normalize(vec3(-gradient.x, -gradient.y, 1.0));
     return vec4(tangentNormal, 1.0);
@@ -230,6 +305,9 @@ function applyRadialPulseShader(material: ShaderMaterial) {
   material.uniforms.kiteWakeCenter = { value: new Vector2() }
   material.uniforms.kiteWakeVelocity = { value: new Vector2() }
   material.uniforms.kiteWakeStrength = { value: 0 }
+  material.uniforms.cubeWakeCenter = { value: new Vector2() }
+  material.uniforms.cubeWakeVelocity = { value: new Vector2() }
+  material.uniforms.cubeWakeStrength = { value: 0 }
   material.uniforms.kiteFoamCenter = { value: new Vector2() }
   material.uniforms.kiteFoamCenters = {
     value: Array.from({ length: KITE_FOAM_COUNT }, () => new Vector2()),
@@ -388,6 +466,7 @@ export function WaterGround({
   const foamStrength = useRef(0)
   const nextRipple = useRef(0)
   const nextFoam = useRef(0)
+  const cubeRippleState = useRef(createCubeRippleState())
   const lastSurfacePosition = useRef(new Vector2())
   const lastFoamPosition = useRef(new Vector2())
   const rippleEvents = useRef<KiteRippleEvent[]>(
@@ -411,7 +490,7 @@ export function WaterGround({
     const surface = new Water(geometry, {
       textureWidth: REFLECTION_RESOLUTION,
       textureHeight: REFLECTION_RESOLUTION,
-      sunDirection: new Vector3(-0.35, 0.58, -0.72).normalize(),
+      sunDirection: new Vector3(...SUN_DIRECTION).normalize(),
       sunColor: '#43a758',
       waterColor: '#4069c9',
       distortionScale: 0.85,
@@ -545,30 +624,111 @@ export function WaterGround({
       // Prefer a free slot. If an unusually rapid series of contacts fills the
       // pool, replace the oldest (already almost transparent) ring rather than
       // blindly overwriting a young, prominent one.
-      let rippleIndex = -1
-      for (let offset = 0; offset < KITE_RIPPLE_COUNT; offset += 1) {
-        const index = (nextRipple.current + offset) % KITE_RIPPLE_COUNT
-        if (!rippleEvents.current[index].active) {
-          rippleIndex = index
-          break
-        }
-      }
-      if (rippleIndex === -1) {
-        rippleIndex = rippleEvents.current.reduce(
-          (oldestIndex, ripple, index, ripples) =>
-            ripple.age > ripples[oldestIndex].age ? index : oldestIndex,
-          0
-        )
-      }
-
-      const ripple = rippleEvents.current[rippleIndex]
-      ripple.active = true
-      ripple.age = 0
-      ripple.center.set(kiteMotion.position.x, kiteMotion.position.z)
-      ripple.strength = emitStrength
-      nextRipple.current = (rippleIndex + 1) % KITE_RIPPLE_COUNT
+      nextRipple.current = emitRippleEvent(
+        rippleEvents.current,
+        nextRipple.current,
+        kiteMotion.position,
+        emitStrength
+      )
       timeSinceEmission.current = 0
     }
+
+    const cubeState = cubeRippleState.current
+    const cubeContactOffset = kiteLibraryCubeMotion.waterContactOffset
+    const cubeIsActive =
+      kiteLibraryCubeMotion.active && cubeContactOffset > 0
+    const cubeDepthBelowSurface = cubeIsActive
+      ? Math.max(
+          0,
+          WATER_LEVEL +
+            cubeContactOffset -
+            kiteLibraryCubeMotion.position.y
+        )
+      : 0
+    const cubeSubmersion =
+      cubeContactOffset > 0
+        ? MathUtils.clamp(
+            cubeDepthBelowSurface / cubeContactOffset,
+            0,
+            1
+          )
+        : 0
+    const cubePlanarSpeed = Math.hypot(
+      kiteLibraryCubeMotion.velocity.x,
+      kiteLibraryCubeMotion.velocity.z
+    )
+    const cubeSurfaceProximity = Math.exp(
+      -cubeDepthBelowSurface * 0.48
+    )
+    const cubeIsSubmerged = cubeIsActive && cubeDepthBelowSurface > 0.02
+    const cubeJustEntered =
+      cubeIsSubmerged &&
+      cubeState.previousSubmersion <= 0.02 &&
+      cubeState.timeAboveSurface >= SURFACE_CONTACT_GRACE
+
+    if (cubeIsSubmerged) {
+      cubeState.timeAboveSurface = 0
+    } else {
+      cubeState.timeAboveSurface += delta
+    }
+    cubeState.timeSinceEmission += delta
+
+    let cubeEmitStrength = 0
+    if (cubeJustEntered) {
+      cubeEmitStrength = cubeSurfaceProximity
+      cubeState.contactDuration = 0
+      cubeState.movementDistance = 0
+      cubeState.lastSurfacePosition.set(
+        kiteLibraryCubeMotion.position.x,
+        kiteLibraryCubeMotion.position.z
+      )
+    } else if (cubeIsSubmerged) {
+      cubeState.contactDuration += delta
+      const cubeFrameTravel = Math.hypot(
+        kiteLibraryCubeMotion.position.x -
+          cubeState.lastSurfacePosition.x,
+        kiteLibraryCubeMotion.position.z -
+          cubeState.lastSurfacePosition.y
+      )
+      cubeState.lastSurfacePosition.set(
+        kiteLibraryCubeMotion.position.x,
+        kiteLibraryCubeMotion.position.z
+      )
+      cubeState.movementDistance += Math.min(cubeFrameTravel, 0.4)
+      const cubeSpeedFactor = MathUtils.clamp(cubePlanarSpeed / 8, 0, 1)
+      const cubeEmissionDistance = MathUtils.lerp(
+        1.5,
+        0.8,
+        cubeSpeedFactor
+      )
+
+      if (
+        cubeState.contactDuration >= 0.7 &&
+        cubeState.movementDistance >= cubeEmissionDistance &&
+        cubeState.timeSinceEmission >= 0.24
+      ) {
+        cubeState.movementDistance -= cubeEmissionDistance
+        cubeEmitStrength =
+          (0.38 + MathUtils.clamp(cubePlanarSpeed * 0.085, 0, 0.7)) *
+          cubeSurfaceProximity
+      }
+    } else if (
+      cubeState.timeAboveSurface >= SURFACE_CONTACT_GRACE
+    ) {
+      cubeState.contactDuration = 0
+      cubeState.movementDistance = 0
+    }
+
+    if (cubeEmitStrength > 0) {
+      nextRipple.current = emitRippleEvent(
+        rippleEvents.current,
+        nextRipple.current,
+        kiteLibraryCubeMotion.position,
+        cubeEmitStrength
+      )
+      cubeState.timeSinceEmission = 0
+    }
+    cubeState.previousSubmersion = cubeSubmersion
 
     const ringCenters = uniforms.kiteRingCenters.value as Vector2[]
     const ringAges = uniforms.kiteRingAges.value as Float32Array
@@ -593,6 +753,19 @@ export function WaterGround({
       MathUtils.smoothstep(planarSpeed, 0.15, 2.5) *
       MathUtils.smoothstep(contactDuration.current, 0.65, 1.15) *
       surfaceProximity
+    uniforms.cubeWakeCenter.value.set(
+      kiteLibraryCubeMotion.position.x,
+      kiteLibraryCubeMotion.position.z
+    )
+    uniforms.cubeWakeVelocity.value.set(
+      kiteLibraryCubeMotion.velocity.x,
+      kiteLibraryCubeMotion.velocity.z
+    )
+    uniforms.cubeWakeStrength.value =
+      cubeSubmersion *
+      MathUtils.smoothstep(cubePlanarSpeed, 0.15, 2.5) *
+      MathUtils.smoothstep(cubeState.contactDuration, 0.65, 1.15) *
+      cubeSurfaceProximity
     const foamSurfaceBand =
       MathUtils.smoothstep(kiteMotion.submersion, 0.015, 0.12) *
       (1 - MathUtils.smoothstep(kiteMotion.submersion, 0.72, 0.96))

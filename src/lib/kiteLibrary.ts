@@ -22,6 +22,7 @@ const supabase = isKiteLibraryConfigured
 export type KiteDesign = {
   artistName: string
   country: string | null
+  createdAt: string
   id: string
   imageUrl: string
   moderationStatus: 'approved' | 'pending' | 'rejected'
@@ -31,6 +32,7 @@ export type KiteDesign = {
 type KiteRow = {
   artist_name: string
   country: string | null
+  created_at: string
   id: string
   image_path: string
   moderation_status: KiteDesign['moderationStatus']
@@ -105,6 +107,7 @@ function toKiteDesign(row: KiteRow): KiteDesign {
   return {
     artistName: row.artist_name,
     country: row.country,
+    createdAt: row.created_at,
     id: row.id,
     imageUrl: data.publicUrl,
     moderationStatus: row.moderation_status,
@@ -117,7 +120,7 @@ export async function listKiteDesigns(): Promise<KiteDesign[]> {
   const { data, error } = await client
     .from('kites')
     .select(
-      'id, title, artist_name, country, image_path, moderation_status'
+      'id, title, artist_name, country, created_at, image_path, moderation_status'
     )
     .order('created_at', { ascending: false })
     .limit(60)
@@ -177,7 +180,7 @@ export async function uploadKiteDesign(
       title: normalizedTitle,
     })
     .select(
-      'id, title, artist_name, country, image_path, moderation_status'
+      'id, title, artist_name, country, created_at, image_path, moderation_status'
     )
     .single()
 

@@ -6,15 +6,19 @@ import { KiteString } from './string'
 import { Hand } from './arm'
 import { KiteSubmersionEffects } from './kiteSubmersionEffects'
 import { Birds } from './birds'
+import { KiteLibraryCube } from './kiteLibraryCube'
 import type { OrientationState } from '../hooks/useDeviceGyro'
 import { useMemo, useRef } from 'react'
 import { AmbientLight, Color, DirectionalLight, Fog } from 'three'
 import { setDiscoColor } from './discoPalette'
+import type { ImpactFeedback } from './impactFeedback'
 
 const MIN_DEVICE_PIXEL_RATIO = 1
 const MAX_DEVICE_PIXEL_RATIO = 1.5
 
 type GameCanvasProps = {
+  birdBloomColor: string
+  birdBloomIntensity: number
   bubbleColor: string
   cameraMode: boolean
   discoMode: boolean
@@ -26,6 +30,8 @@ type GameCanvasProps = {
   lightColor: string
   kiteTextureUrl: string
   orientation: OrientationState
+  onKiteImpact: (feedback?: ImpactFeedback) => void
+  onOpenKiteLibrary: () => void
   pulseSpeed: number
   pulseWidth: number
   reflectionClarity: number
@@ -38,6 +44,8 @@ type GameCanvasProps = {
 }
 
 export function GameCanvas({
+  birdBloomColor,
+  birdBloomIntensity,
   bubbleColor,
   cameraMode,
   discoMode,
@@ -49,6 +57,8 @@ export function GameCanvas({
   lightColor,
   kiteTextureUrl,
   orientation,
+  onKiteImpact,
+  onOpenKiteLibrary,
   pulseSpeed,
   pulseWidth,
   reflectionClarity,
@@ -105,9 +115,19 @@ export function GameCanvas({
         stringLength={stringLength}
         windSpeed={windSpeed}
       />
+      <KiteLibraryCube
+        discoMode={discoMode}
+        onKiteImpact={onKiteImpact}
+        onOpenLibrary={onOpenKiteLibrary}
+        visible={!cameraMode}
+        windSpeed={windSpeed}
+      />
       <Birds
+        bloomColor={birdBloomColor}
+        bloomIntensity={birdBloomIntensity}
         discoMode={discoMode}
         lightColor={lightColor}
+        onKiteImpact={onKiteImpact}
         visible={showBirds}
         windSpeed={windSpeed}
       />

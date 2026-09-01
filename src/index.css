@@ -110,10 +110,119 @@ button {
   white-space: nowrap;
 }
 
+.kite-attribution {
+  position: fixed;
+  top: calc(50% + 96px);
+  left: 50%;
+  z-index: 20;
+  display: grid;
+  gap: 3px;
+  width: min(167px, calc(100vw - 32px));
+  padding: 7px 10px;
+  border: 2px solid white;
+  border-radius: 8px;
+  color: white;
+  background: #0645ad;
+  font-family: "Courier New", Courier, monospace;
+  text-align: left;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.72);
+  transform: translateX(-75%) translateY(-50%);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 420ms ease,
+    visibility 0s linear 420ms,
+    background-color 160ms ease;
+  animation: kite-attribution-float 3.8s ease-in-out infinite;
+}
+
+.kite-attribution.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.kite-attribution:hover,
+.kite-attribution:focus-visible {
+  background: #0b57d0;
+}
+
+.kite-attribution-marquee {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  margin: 1px 0 2px;
+  padding: 2px 0;
+  white-space: nowrap;
+}
+
+.kite-attribution-marquee-track {
+  display: flex;
+  width: max-content;
+  font-size: 11px;
+  animation: kite-attribution-scroll 3.5s linear infinite;
+}
+
+.kite-attribution-marquee-item {
+  flex: none;
+}
+
+.kite-attribution-separator {
+  letter-spacing: 0.08em;
+  opacity: 0.8;
+}
+
+.kite-attribution small {
+  font-size: 9px;
+  opacity: 0.76;
+}
+
+@keyframes kite-attribution-scroll {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-33.33%);
+  }
+}
+
+@keyframes kite-attribution-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  50% {
+    translate: 0 -6px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .loading-screen,
-  .loading-progress-fill {
+  .loading-progress-fill,
+  .kite-attribution,
+  .kite-attribution-marquee-track {
     transition-duration: 0.01ms;
+    animation: none;
+  }
+
+  .kite-attribution-marquee-track {
+    display: block;
+    width: 100%;
+  }
+
+  .kite-attribution-marquee-item {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .kite-attribution-marquee-item + .kite-attribution-marquee-item,
+  .kite-attribution-separator {
+    display: none;
   }
 }
 
@@ -146,6 +255,134 @@ button {
   top: 13px;
   width: 20px;
   height: 2px;
+}
+
+.crosshair-hitmarker {
+  position: absolute;
+  inset: -6px;
+  filter:
+    drop-shadow(0 0 2px rgba(0, 0, 0, 0.7))
+    drop-shadow(0 0 3px currentColor)
+    drop-shadow(0 0 8px currentColor);
+  animation: crosshair-hit 1020ms linear both;
+  will-change: opacity, transform;
+}
+
+.crosshair-hitmarker::before,
+.crosshair-hitmarker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 34px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.crosshair-hitmarker::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.crosshair-hitmarker::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.crosshair-hitmarker.is-emphasized::before,
+.crosshair-hitmarker.is-emphasized::after {
+  width: 6px;
+  height: 68px;
+}
+
+@keyframes crosshair-hit {
+  0% {
+    opacity: 0;
+    transform: scale(1.18);
+    animation-timing-function: ease-out;
+  }
+
+  26% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  42% {
+    opacity: 1;
+    transform: translate(4vw, -18px) rotate(18deg) scale(1.04);
+  }
+
+  55% {
+    opacity: 1;
+    transform: translate(9vw, -26px) rotate(58deg) scale(1.01);
+  }
+
+  68% {
+    opacity: 1;
+    transform: translate(17vw, -10px) rotate(126deg) scale(0.94);
+  }
+
+  80% {
+    opacity: 1;
+    transform: translate(28vw, 12vh) rotate(225deg) scale(0.84);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+
+  100% {
+    opacity: 1;
+    transform:
+      translate(calc(50vw + 100px), calc(50vh + 100px))
+      rotate(480deg)
+      scale(0.72);
+  }
+}
+
+.bird-hit-tracker {
+  position: absolute;
+  right: max(24px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  display: grid;
+  justify-items: center;
+  min-width: 96px;
+  padding: 9px 13px;
+  border: 2px solid white;
+  border-radius: 10px;
+  color: white;
+  background: #0645ad;
+  box-shadow: 0 0 12px rgba(142, 232, 255, 0.48);
+  font: inherit;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.72);
+  animation: bird-hit-tracker 1800ms ease-in-out both;
+}
+
+.bird-hit-tracker strong {
+  font-size: 21px;
+  line-height: 1;
+}
+
+.bird-hit-tracker span {
+  margin-top: 3px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@keyframes bird-hit-tracker {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.94);
+  }
+
+  14%,
+  68% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
 }
 
 .instructions {
@@ -688,6 +925,11 @@ button {
   font-size: 10px;
 }
 
+.kite-library-card .kite-library-date {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 9px;
+}
+
 .kite-library-card small {
   padding: 2px 5px;
   border-radius: 999px;
@@ -1050,10 +1292,21 @@ button {
     border-radius 160ms ease;
 }
 
+.string-length-panel {
+  width: 120px;
+  text-align: center;
+}
+
 .wind-speed-panel[open],
 .string-length-panel[open] {
   width: 96px;
   border-radius: 14px;
+}
+
+.string-length-panel[open] {
+  width: 76px;
+  padding-right: 8px;
+  padding-left: 8px;
 }
 
 .wind-speed-panel summary,
@@ -1077,6 +1330,15 @@ button {
   flex-direction: column;
   justify-content: center;
   gap: 2px;
+}
+
+.string-length-panel summary {
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding-right: 18px;
+  padding-left: 18px;
+  text-align: center;
 }
 
 .wind-speed-panel summary::after,
@@ -1114,6 +1376,10 @@ button {
   margin-left: 0;
 }
 
+.string-length-panel summary output {
+  margin-left: 0;
+}
+
 .wind-speed-panel-content,
 .string-length-panel-content {
   display: flex;
@@ -1132,15 +1398,29 @@ button {
   font-size: 11px;
 }
 
+.string-length-scale {
+  width: 100%;
+  text-align: center;
+}
+
 .wind-speed-slider,
 .string-length-slider {
-  width: 28px;
   height: 170px;
   margin: 0;
   accent-color: #8ee8ff;
   direction: rtl;
   writing-mode: vertical-lr;
   touch-action: none;
+}
+
+.wind-speed-slider {
+  width: 28px;
+}
+
+.string-length-slider {
+  width: 28px;
+  transform: scaleX(2);
+  transform-origin: center;
 }
 
 @media (pointer: coarse) and (orientation: portrait) {
@@ -1193,6 +1473,16 @@ button {
   .wind-speed-panel[open],
   .string-length-panel[open] {
     width: 92px;
+  }
+
+  .string-length-panel {
+    width: 120px;
+  }
+
+  .string-length-panel[open] {
+    width: 76px;
+    padding-right: 8px;
+    padding-left: 8px;
   }
 
   .wind-speed-slider,

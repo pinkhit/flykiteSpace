@@ -15,10 +15,21 @@ import { DISCO_PALETTE } from '../game/discoPalette'
 
 const ART_SIZE = 32
 const MAX_UNDO_STEPS = 30
+
+export type KiteSelection = {
+  artistName?: string
+  libraryDesignId?: string
+  textureUrl: string
+  title?: string
+}
+
+export type KiteStudioTab = 'draw' | 'library'
+
 type KiteStudioProps = {
   currentTextureUrl: string
+  initialTab: KiteStudioTab
   onClose: () => void
-  onUseDesign: (textureUrl: string) => void
+  onUseDesign: (selection: KiteSelection) => void
 }
 
 type Tool = 'pencil' | 'eraser'
@@ -57,8 +68,22 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong.'
 }
 
+const addedDateFormatter = new Intl.DateTimeFormat(undefined, {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+})
+
+function formatAddedDate(createdAt: string) {
+  const date = new Date(createdAt)
+  return Number.isNaN(date.getTime())
+    ? 'Date unavailable'
+    : `Added ${addedDateFormatter.format(date)}`
+}
+
 export function KiteStudio({
   currentTextureUrl,
+  initialTab,
   onClose,
   onUseDesign,
 }: KiteStudioProps) {
@@ -66,7 +91,7 @@ export function KiteStudio({
   const draftDataUrl = useRef<string | null>(null)
   const undoStack = useRef<ImageData[]>([])
   const lastPixel = useRef<{ x: number; y: number } | null>(null)
-  const [activeTab, setActiveTab] = useState<'draw' | 'library'>('draw')
+  const [activeTab, setActiveTab] = useState<KiteStudioTab>(initialTab)
   const [artistName, setArtistName] = useState('')
   const [brushColor, setBrushColor] = useState<string>(DISCO_PALETTE[0])
   const [brushSize, setBrushSize] = useState(4)
@@ -94,6 +119,13 @@ export function KiteStudio({
       setLibraryLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    if (activeTab !== 'library') return
+
+    const loadTimer = window.setTimeout(() => void loadLibrary(), 0)
+    return () => window.clearTimeout(loadTimer)
+  }, [activeTab, loadLibrary])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -238,7 +270,7 @@ export function KiteStudio({
     const canvas = canvasRef.current
     if (!canvas) return
 
-    onUseDesign(canvas.toDataURL('image/png'))
+    onUseDesign({ textureUrl: canvas.toDataURL('image/png') })
     setStatusMessage('Your drawing is now flying.')
   }
 
@@ -257,7 +289,12 @@ export function KiteStudio({
         await canvasToPng(canvas)
       )
       setDesigns((current) => [design, ...current])
-      onUseDesign(design.imageUrl)
+      onUseDesign({
+        artistName: design.artistName,
+        libraryDesignId: design.id,
+        textureUrl: design.imageUrl,
+        title: design.title,
+      })
       setStatusMessage(
         'Uploaded and applied. It will become public after approval.'
       )
@@ -303,7 +340,6 @@ export function KiteStudio({
               draftDataUrl.current =
                 canvasRef.current?.toDataURL('image/png') ?? null
               setActiveTab('library')
-              void loadLibrary()
             }}
             role="tab"
             type="button"
@@ -494,7 +530,13 @@ export function KiteStudio({
               <button
                 aria-pressed={currentTextureUrl === '/kite.png'}
                 className="kite-library-card"
-                onClick={() => onUseDesign('/kite.png')}
+                onClick={() =>
+                  onUseDesign({
+                    artistName: 'admin',
+                    textureUrl: '/kite.png',
+                    title: 'Frank',
+                  })
+                }
                 type="button"
               >
                 <img alt="Frank" src="/kite.png" />
@@ -506,7 +548,14 @@ export function KiteStudio({
                   aria-pressed={currentTextureUrl === design.imageUrl}
                   className="kite-library-card"
                   key={design.id}
-                  onClick={() => onUseDesign(design.imageUrl)}
+                  onClick={() =>
+                    onUseDesign({
+                      artistName: design.artistName,
+                      libraryDesignId: design.id,
+                      textureUrl: design.imageUrl,
+                      title: design.title,
+                    })
+                  }
                   type="button"
                 >
                   <img alt={design.title} loading="lazy" src={design.imageUrl} />
@@ -519,6 +568,9 @@ export function KiteStudio({
                       {design.country}
                     </span>
                   )}
+                  <span className="kite-library-date">
+                    {formatAddedDate(design.createdAt)}
+                  </span>
                   {design.moderationStatus !== 'approved' && (
                     <small>{design.moderationStatus}</small>
                   )}
