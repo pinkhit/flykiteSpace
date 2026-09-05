@@ -7,6 +7,7 @@ import { Hand } from './arm'
 import { KiteSubmersionEffects } from './kiteSubmersionEffects'
 import { Birds } from './birds'
 import { KiteLibraryCube } from './kiteLibraryCube'
+import { KiteLibraryLocatorTracker } from './kiteLibraryLocator'
 import type { OrientationState } from '../hooks/useDeviceGyro'
 import { useMemo, useRef } from 'react'
 import { AmbientLight, Color, DirectionalLight, Fog } from 'three'
@@ -29,6 +30,7 @@ type GameCanvasProps = {
   horizonColor: string
   lightColor: string
   kiteTextureUrl: string
+  libraryCubeFlashSequence: number
   orientation: OrientationState
   onKiteImpact: (feedback?: ImpactFeedback) => void
   onOpenKiteLibrary: () => void
@@ -56,6 +58,7 @@ export function GameCanvas({
   horizonColor,
   lightColor,
   kiteTextureUrl,
+  libraryCubeFlashSequence,
   orientation,
   onKiteImpact,
   onOpenKiteLibrary,
@@ -69,7 +72,10 @@ export function GameCanvas({
   stringLength,
   waterColor,
 }: GameCanvasProps) {
+  const libraryLocatorRef = useRef<HTMLDivElement>(null)
+
   return (
+    <>
     <Canvas
       className="canvas"
       camera={{ position: [0, 1.6, 0], fov: 70 }}
@@ -117,11 +123,13 @@ export function GameCanvas({
       />
       <KiteLibraryCube
         discoMode={discoMode}
+        flashSequence={libraryCubeFlashSequence}
         onKiteImpact={onKiteImpact}
         onOpenLibrary={onOpenKiteLibrary}
         visible={!cameraMode}
         windSpeed={windSpeed}
       />
+      <KiteLibraryLocatorTracker indicatorRef={libraryLocatorRef} />
       <Birds
         bloomColor={birdBloomColor}
         bloomIntensity={birdBloomIntensity}
@@ -142,6 +150,26 @@ export function GameCanvas({
         windSpeed={windSpeed}
       />
     </Canvas>
+
+    <div
+      aria-label="Kite Library cube is off screen; the arrow points toward it."
+      className="kite-library-locator"
+      hidden
+      ref={libraryLocatorRef}
+      role="img"
+    >
+      <div className="kite-library-locator-blob">
+        <svg
+          aria-hidden="true"
+          className="kite-library-locator-arrow"
+          viewBox="0 0 24 24"
+        >
+          <path d="M3 12h17m-6-6 6 6-6 6" />
+        </svg>
+        <span>KITE LIBRARY</span>
+      </div>
+    </div>
+    </>
   )
 }
 

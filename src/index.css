@@ -1014,6 +1014,87 @@ button {
   z-index: 1;
 }
 
+.kite-library-locator {
+  --locator-x: 50vw;
+  --locator-y: 50vh;
+  --locator-angle: 0rad;
+  pointer-events: none;
+  position: fixed;
+  left: clamp(
+    calc(env(safe-area-inset-left, 0px) + 38px),
+    var(--locator-x),
+    calc(100vw - env(safe-area-inset-right, 0px) - 38px)
+  );
+  top: clamp(
+    calc(env(safe-area-inset-top, 0px) + 38px),
+    var(--locator-y),
+    calc(100vh - env(safe-area-inset-bottom, 0px) - 38px)
+  );
+  z-index: 6;
+  transform: translate3d(-50%, -50%, 0);
+  will-change: left, top;
+}
+
+.kite-library-locator[hidden] {
+  display: none;
+}
+
+.kite-library-locator-blob {
+  display: grid;
+  width: 72px;
+  height: 62px;
+  place-items: center;
+  padding: 7px 8px 6px;
+  border: 2px solid white;
+  border-radius: 48% 52% 44% 56% / 55% 42% 58% 45%;
+  color: white;
+  background: #0645ad;
+  box-shadow:
+    0 3px 9px rgba(0, 0, 0, 0.32),
+    0 0 16px rgba(111, 225, 255, 0.82);
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.72);
+  animation: kite-library-locator-pulse 1.8s ease-in-out infinite;
+}
+
+.kite-library-locator-arrow {
+  width: 23px;
+  height: 23px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+  transform: rotate(var(--locator-angle));
+}
+
+.kite-library-locator span {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+@keyframes kite-library-locator-pulse {
+  0%,
+  100% {
+    border-radius: 48% 52% 44% 56% / 55% 42% 58% 45%;
+    scale: 1;
+  }
+
+  50% {
+    border-radius: 55% 45% 53% 47% / 44% 58% 42% 56%;
+    scale: 1.06;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kite-library-locator-blob {
+    animation: none;
+  }
+}
+
 .hud {
   pointer-events: none;
   position: fixed;

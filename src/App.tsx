@@ -88,6 +88,7 @@ export default function App() {
   })
   const [birdHitCount, setBirdHitCount] = useState(readSessionBirdHits)
   const [birdHitSequence, setBirdHitSequence] = useState(0)
+  const [libraryCubeFlashSequence, setLibraryCubeFlashSequence] = useState(0)
   const [showHands, setShowHands] = useState(false)
   const [stringLength, setStringLength] = useState(
     DEFAULT_KITE_STRING_LENGTH
@@ -264,6 +265,10 @@ export default function App() {
       setBirdHitCount((count) => count + (feedback.birdHitValue ?? 1))
       setBirdHitSequence((sequence) => sequence + 1)
     }
+
+    if (feedback.flashLibraryCube) {
+      setLibraryCubeFlashSequence((sequence) => sequence + 1)
+    }
   }, [])
 
   const handleGameLoaded = useCallback(() => {
@@ -317,6 +322,7 @@ export default function App() {
         horizonColor={horizonColor}
         lightColor={lightColor}
         kiteTextureUrl={kiteSelection.textureUrl}
+        libraryCubeFlashSequence={libraryCubeFlashSequence}
         onKiteImpact={handleKiteImpact}
         onOpenKiteLibrary={() => handleOpenKiteStudio('library')}
         orientation={orientation}

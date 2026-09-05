@@ -833,6 +833,7 @@ export function Birds({
               birdHit: true,
               birdHitValue: 2,
               emphasized: hitBirdIsVisible,
+              flashLibraryCube: true,
               showHitmarker: hitBirdIsVisible,
             })
           }

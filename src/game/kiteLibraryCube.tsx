@@ -41,6 +41,9 @@ const SPIN_AXIS_DURATION_VARIATION = 4.5
 const DISCO_COLOR_CHANGES_PER_SECOND = 0.42
 const DISCO_PULSE_SPEED = 1.8
 const DISCO_PULSE_AMOUNT = 0.08
+const BIRD_HIT_FLASH_DURATION = 0.62
+const BIRD_HIT_FLASH_COLORS_PER_SECOND =
+  DISCO_PALETTE.length / BIRD_HIT_FLASH_DURATION
 const MIN_HORIZONTAL_CRUISE_SPEED = 1.22 * CUBE_TRAVEL_SPEED_SCALE
 const MIN_VERTICAL_CRUISE_SPEED = 1.67 * CUBE_TRAVEL_SPEED_SCALE
 const MAX_BODY_SPEED = 32 * CUBE_TRAVEL_SPEED_SCALE
@@ -148,6 +151,7 @@ function kitePathHitsCube(cubePosition: Vector3, previousKitePosition: Vector3) 
 
 type KiteLibraryCubeProps = {
   discoMode: boolean
+  flashSequence: number
   onKiteImpact: (feedback?: ImpactFeedback) => void
   onOpenLibrary: () => void
   visible: boolean
@@ -156,6 +160,7 @@ type KiteLibraryCubeProps = {
 
 export function KiteLibraryCube({
   discoMode,
+  flashSequence,
   onKiteImpact,
   onOpenLibrary,
   visible,
@@ -172,6 +177,8 @@ export function KiteLibraryCube({
   const previousKitePosition = useRef(new Vector3())
   const kitePositionReady = useRef(false)
   const kiteCollisionActive = useRef(false)
+  const lastFlashSequence = useRef(flashSequence)
+  const flashStartedAt = useRef(Number.NEGATIVE_INFINITY)
   const libraryTexture = useMemo(() => createLibraryTexture(), [])
 
   useEffect(() => () => libraryTexture.dispose(), [libraryTexture])
@@ -190,10 +197,21 @@ export function KiteLibraryCube({
     const elapsedTime = state.clock.elapsedTime
     kiteLibraryCubeMotion.previousPosition.copy(cube.position)
 
+    if (lastFlashSequence.current !== flashSequence) {
+      lastFlashSequence.current = flashSequence
+      flashStartedAt.current = elapsedTime
+    }
+
+    const flashElapsed = elapsedTime - flashStartedAt.current
+    const birdHitFlashActive =
+      flashElapsed >= 0 && flashElapsed < BIRD_HIT_FLASH_DURATION
+
     if (materialRef.current) {
-      if (discoMode) {
+      if (discoMode || birdHitFlashActive) {
         const discoProgress =
-          elapsedTime * DISCO_COLOR_CHANGES_PER_SECOND
+          birdHitFlashActive
+            ? flashElapsed * BIRD_HIT_FLASH_COLORS_PER_SECOND
+            : elapsedTime * DISCO_COLOR_CHANGES_PER_SECOND
         const discoIndex =
           Math.floor(discoProgress) % cubeDiscoPalette.length
         const nextDiscoIndex =
